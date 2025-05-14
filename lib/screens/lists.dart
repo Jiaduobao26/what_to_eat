@@ -87,11 +87,10 @@ class _RestaurantCard extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(20),
-              child: Image.network(
-                'https://placehold.co/93x93',
+              child: const SizedBox(
                 width: 93,
                 height: 93,
-                fit: BoxFit.cover,
+                child: Icon(Icons.image, size: 60, color: Colors.grey),
               ),
             ),
             const SizedBox(width: 10),

@@ -149,11 +149,10 @@ class _FoodCard extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(20),
-              child: Image.network(
-                imageUrl,
+              child: const SizedBox(
                 width: 100,
                 height: 80,
-                fit: BoxFit.cover,
+                child: Icon(Icons.image, size: 60, color: Colors.grey),
               ),
             ),
             const SizedBox(height: 16),

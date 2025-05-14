@@ -42,11 +42,10 @@ class ProfileScreen extends StatelessWidget {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Image.network(
-                    'https://placehold.co/91x100',
+                  child: const SizedBox(
                     width: 91,
                     height: 100,
-                    fit: BoxFit.cover,
+                    child: Icon(Icons.image, size: 60, color: Colors.grey),
                   ),
                 ),
                 const SizedBox(width: 24),
