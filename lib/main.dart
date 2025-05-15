@@ -23,7 +23,7 @@ final GoRouter _router = GoRouter(
     ),
     GoRoute(
       path: '/wheel',
-      builder: (context, state) => const WheelOne(),
+      builder: (context, state) => WheelOne(),
     ),
     GoRoute(
       path: '/map',

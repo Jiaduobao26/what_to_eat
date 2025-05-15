@@ -10,14 +10,33 @@ class PreferenceChooseScreen extends StatefulWidget {
 
 class _PreferenceChooseScreenState extends State<PreferenceChooseScreen> {
   String flag = 'like';
+  // 记录每个选项的选中状态
+  final Set<int> _selectedIndexes = {};
+
+  final List<_FoodOption> _options = const [
+    _FoodOption(title: 'Fried chicken m.', price: 'N1,900'),
+    _FoodOption(title: 'Veggie tomato mix', price: 'N1,900'),
+    _FoodOption(title: 'Moi-moi and ekpa.', price: 'N1,900'),
+    _FoodOption(title: 'Egg and cucumber...', price: 'N1,900'),
+  ];
+
+  void _onCardTap(int index) {
+    setState(() {
+      if (_selectedIndexes.contains(index)) {
+        _selectedIndexes.remove(index);
+      } else {
+        _selectedIndexes.add(index);
+      }
+    });
+  }
 
   void _onContinue() {
     if (flag == 'like') {
       setState(() {
         flag = 'dislike';
+        _selectedIndexes.clear(); // 切换到dislike时清空选择
       });
     } else {
-      // dislike设置完成，进入wheel
       GoRouter.of(context).go('/wheel');
     }
   }
@@ -69,33 +88,26 @@ class _PreferenceChooseScreenState extends State<PreferenceChooseScreen> {
             ),
             const SizedBox(height: 24),
             Expanded(
-              child: GridView.count(
-                crossAxisCount: 2,
-                mainAxisSpacing: 16,
-                crossAxisSpacing: 16,
-                childAspectRatio: 0.8,
-                children: [
-                  _FoodCard(
-                    imageUrl: 'https://placehold.co/217x144',
-                    title: 'Fried chicken m.',
-                    price: 'N1,900',
-                  ),
-                  _FoodCard(
-                    imageUrl: 'https://placehold.co/217x144',
-                    title: 'Veggie tomato mix',
-                    price: 'N1,900',
-                  ),
-                  _FoodCard(
-                    imageUrl: 'https://placehold.co/217x144',
-                    title: 'Moi-moi and ekpa.',
-                    price: 'N1,900',
-                  ),
-                  _FoodCard(
-                    imageUrl: 'https://placehold.co/217x144',
-                    title: 'Egg and cucumber...',
-                    price: 'N1,900',
-                  ),
-                ],
+              child: Form(
+                child: GridView.count(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 16,
+                  crossAxisSpacing: 16,
+                  childAspectRatio: 0.8,
+                  children: List.generate(_options.length, (index) {
+                    final option = _options[index];
+                    final selected = _selectedIndexes.contains(index);
+                    return GestureDetector(
+                      onTap: () => _onCardTap(index),
+                      child: _FoodCard(
+                        title: option.title,
+                        price: option.price,
+                        selected: selected,
+                        flag: flag,
+                      ),
+                    );
+                  }),
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -123,21 +135,35 @@ class _PreferenceChooseScreenState extends State<PreferenceChooseScreen> {
   }
 }
 
-class _FoodCard extends StatelessWidget {
-  final String imageUrl;
+class _FoodOption {
   final String title;
   final String price;
 
+  const _FoodOption({required this.title, required this.price});
+}
+
+class _FoodCard extends StatelessWidget {
+  final String title;
+  final String price;
+  final bool selected;
+  final String flag;
+
   const _FoodCard({
-    required this.imageUrl,
     required this.title,
     required this.price,
+    this.selected = false,
+    this.flag = 'like',
     Key? key,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    Color cardColor = Colors.white;
+    if (selected) {
+      cardColor = flag == 'like' ? Colors.green.shade100 : Colors.red.shade100;
+    }
     return Card(
+      color: cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(30),
       ),

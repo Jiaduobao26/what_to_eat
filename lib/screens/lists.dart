@@ -1,8 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../blocs/restaurant_list_bloc.dart';
 
 class Lists extends StatelessWidget {
   const Lists({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => RestaurantListBloc(),
+      child: const ListsView(),
+    );
+  }
+}
+
+class ListsView extends StatelessWidget {
+  const ListsView({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -23,22 +37,21 @@ class Lists extends StatelessWidget {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16),
-            child: CircleAvatar(
-              backgroundColor: Colors.white,
-              radius: 24,
-              child: Icon(Icons.person, color: Color(0xFFE95322)),
+            child: IconButton(
+              icon: const Icon(Icons.map, color: Color(0xFF391713)), 
+              onPressed: () {
+                GoRouter.of(context).go('/map');
+              },
             ),
           ),
         ],
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF391713)),
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
-        itemCount: 6,
-        itemBuilder: (context, index) => _RestaurantCard(),
+      body: BlocBuilder<RestaurantListBloc, RestaurantListState>(
+        builder: (context, state) => ListView.builder(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
+          itemCount: state.restaurants.length,
+          itemBuilder: (context, index) => _RestaurantCard(info: state.restaurants[index]),
+        ),
       ),
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: Colors.white,
@@ -74,7 +87,8 @@ class Lists extends StatelessWidget {
 }
 
 class _RestaurantCard extends StatelessWidget {
-  const _RestaurantCard({Key? key}) : super(key: key);
+  final RestaurantInfo info;
+  const _RestaurantCard({Key? key, required this.info}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -98,9 +112,9 @@ class _RestaurantCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Restaurant Name',
-                    style: TextStyle(
+                  Text(
+                    info.name,
+                    style: const TextStyle(
                       color: Colors.black,
                       fontSize: 16,
                       fontFamily: 'Roboto',
@@ -110,9 +124,9 @@ class _RestaurantCard extends StatelessWidget {
                   const SizedBox(height: 5),
                   Row(
                     children: [
-                      const Text(
-                        '4.3',
-                        style: TextStyle(
+                      Text(
+                        info.rating.toStringAsFixed(1),
+                        style: const TextStyle(
                           color: Color(0xFF79747E),
                           fontSize: 12,
                           fontFamily: 'Roboto',
@@ -121,9 +135,9 @@ class _RestaurantCard extends StatelessWidget {
                       const SizedBox(width: 5),
                       const Icon(Icons.star, color: Color(0xFFFFA500), size: 16),
                       const SizedBox(width: 5),
-                      const Text(
-                        '(305)',
-                        style: TextStyle(
+                      Text(
+                        '(${info.reviews})',
+                        style: const TextStyle(
                           color: Color(0xFF79747E),
                           fontSize: 12,
                           fontFamily: 'Roboto',
@@ -132,9 +146,9 @@ class _RestaurantCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 5),
-                  const Text(
-                    'Locally owned restaurant serving up a variety of traditional Chinese ...',
-                    style: TextStyle(
+                  Text(
+                    info.description,
+                    style: const TextStyle(
                       color: Color(0xFF79747E),
                       fontSize: 12,
                       fontFamily: 'Roboto',
