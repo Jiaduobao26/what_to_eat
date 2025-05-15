@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../blocs/restaurant_list_bloc.dart';
 
 class MapScreen extends StatelessWidget {
@@ -48,28 +49,17 @@ class MapScreenView extends StatelessWidget {
       ),
       body: Column(
         children: [
-          AspectRatio(
-            aspectRatio: 2.2, 
-            child: Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(top: 8, left: 16, right: 16, bottom: 0),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF5F5F5),
-                borderRadius: BorderRadius.circular(16),
-                image: const DecorationImage(
-                  image: AssetImage('assets/QQ_1747288259052.png'),
-                  fit: BoxFit.cover,
+          SizedBox(
+            height: 220,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: GoogleMap(
+                initialCameraPosition: CameraPosition(
+                  target: LatLng(39.909187, 116.397451),
+                  zoom: 12,
                 ),
-              ),
-            ),
-          ),
-          Container(
-            width: double.infinity,
-            height: 300,
-            decoration: const BoxDecoration(
-              image: DecorationImage(
-                image: NetworkImage('https://placehold.co/400x393'),
-                fit: BoxFit.cover,
+                myLocationEnabled: true,
+                myLocationButtonEnabled: true,
               ),
             ),
           ),
