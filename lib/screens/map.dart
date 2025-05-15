@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../blocs/restaurant_list_bloc.dart';
 
 class MapScreen extends StatelessWidget {
@@ -16,8 +17,23 @@ class MapScreen extends StatelessWidget {
   }
 }
 
-class MapScreenView extends StatelessWidget {
+class MapScreenView extends StatefulWidget {
   const MapScreenView({Key? key}) : super(key: key);
+
+  @override
+  State<MapScreenView> createState() => _MapScreenViewState();
+}
+
+class _MapScreenViewState extends State<MapScreenView> {
+  @override
+  void initState() {
+    super.initState();
+    _requestLocationPermission();
+  }
+
+  Future<void> _requestLocationPermission() async {
+    await Permission.location.request();
+  }
 
   @override
   Widget build(BuildContext context) {
