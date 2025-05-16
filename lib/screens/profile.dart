@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({Key? key}) : super(key: key);
+  const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -143,7 +143,7 @@ class ProfileScreen extends StatelessWidget {
 class _ProfileItem extends StatelessWidget {
   final String title;
   final String? trailing;
-  const _ProfileItem({required this.title, this.trailing, Key? key}) : super(key: key);
+  const _ProfileItem({required this.title, this.trailing, super.key});
 
   @override
   Widget build(BuildContext context) {

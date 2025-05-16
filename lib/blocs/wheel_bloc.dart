@@ -1,20 +1,54 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'dart:math';
+import 'dart:async';
 
-// Wheel option model
-class WheelOption extends Equatable {
+class Option extends Equatable {
   final String name;
-  const WheelOption(this.name);
-
-  WheelOption copyWith({String? name}) => WheelOption(name ?? this.name);
+  Option(this.name);
 
   @override
   List<Object?> get props => [name];
 }
 
-// Events
+class WheelState extends Equatable {
+  final int? selectedIndex;
+  final List<Option> options;
+  final bool showModify;
+  final bool showResult;
+  final bool shouldSpin;
+
+  WheelState({
+    this.selectedIndex,
+    List<Option>? options,
+    this.showModify = false,
+    this.showResult = false,
+    this.shouldSpin = false,
+  }) : options = options ?? [];
+
+  WheelState copyWith({
+    int? selectedIndex,
+    List<Option>? options,
+    bool? showModify,
+    bool? showResult,
+    bool? shouldSpin,
+  }) {
+    return WheelState(
+      selectedIndex: selectedIndex ?? this.selectedIndex,
+      options: options ?? this.options,
+      showModify: showModify ?? this.showModify,
+      showResult: showResult ?? this.showResult,
+      shouldSpin: shouldSpin ?? this.shouldSpin,
+    );
+  }
+
+  @override
+  List<Object?> get props => [selectedIndex, options, showModify, showResult, shouldSpin];
+}
+
 abstract class WheelEvent extends Equatable {
   const WheelEvent();
+
   @override
   List<Object?> get props => [];
 }
@@ -22,69 +56,64 @@ abstract class WheelEvent extends Equatable {
 class ShowResultEvent extends WheelEvent {}
 class ShowModifyEvent extends WheelEvent {}
 class CloseModifyEvent extends WheelEvent {}
-class AddOptionEvent extends WheelEvent {}
+class UpdateOptionEvent extends WheelEvent {
+  final int index;
+  final String value;
+  const UpdateOptionEvent(this.index, this.value);
+
+  @override
+  List<Object?> get props => [index, value];
+}
 class RemoveOptionEvent extends WheelEvent {
   final int index;
   const RemoveOptionEvent(this.index);
+
   @override
   List<Object?> get props => [index];
 }
-class UpdateOptionEvent extends WheelEvent {
-  final int index;
-  final String name;
-  const UpdateOptionEvent(this.index, this.name);
-  @override
-  List<Object?> get props => [index, name];
-}
+class AddOptionEvent extends WheelEvent {}
+class SpinWheelEvent extends WheelEvent {}
 
-// State
-class WheelState extends Equatable {
-  final bool showResult;
-  final bool showModify;
-  final List<WheelOption> options;
-  const WheelState({
-    this.showResult = false,
-    this.showModify = false,
-    this.options = const [
-      WheelOption('Golden Dragon'),
-      WheelOption('Spicy House'),
-      WheelOption('Veggie Delight'),
-      WheelOption('Noodle Bar'),
-    ],
-  });
-
-  WheelState copyWith({
-    bool? showResult,
-    bool? showModify,
-    List<WheelOption>? options,
-  }) => WheelState(
-    showResult: showResult ?? this.showResult,
-    showModify: showModify ?? this.showModify,
-    options: options ?? this.options,
-  );
-
-  @override
-  List<Object?> get props => [showResult, showModify, options];
-}
-
-// Bloc
 class WheelBloc extends Bloc<WheelEvent, WheelState> {
-  WheelBloc() : super(const WheelState()) {
-    on<ShowResultEvent>((event, emit) => emit(state.copyWith(showResult: true)));
-    on<ShowModifyEvent>((event, emit) => emit(state.copyWith(showModify: true)));
-    on<CloseModifyEvent>((event, emit) => emit(state.copyWith(showModify: false)));
-    on<AddOptionEvent>((event, emit) {
-      final updated = List<WheelOption>.from(state.options)..add(const WheelOption('New Option'));
-      emit(state.copyWith(options: updated));
+  final _random = Random();
+  StreamController<int>? _spinController;
+
+  WheelBloc() : super(WheelState(
+    selectedIndex: 0,
+    options: [Option('A'), Option('B'), Option('C')]
+  )){
+    on<ShowResultEvent>((event, emit) {
+      emit(state.copyWith(showResult: true));
     });
-    on<RemoveOptionEvent>((event, emit) {
-      final updated = List<WheelOption>.from(state.options)..removeAt(event.index);
-      emit(state.copyWith(options: updated));
+    on<ShowModifyEvent>((event, emit) {
+      emit(state.copyWith(showModify: true));
+    });
+    on<CloseModifyEvent>((event, emit) {
+      emit(state.copyWith(showModify: false));
     });
     on<UpdateOptionEvent>((event, emit) {
-      final updated = List<WheelOption>.from(state.options);
-      updated[event.index] = updated[event.index].copyWith(name: event.name);
-      emit(state.copyWith(options: updated));
+      final newOptions = List<Option>.from(state.options);
+      newOptions[event.index] = Option(event.value);
+      emit(state.copyWith(options: newOptions));
     });
+    on<RemoveOptionEvent>((event, emit) {
+      final newOptions = List<Option>.from(state.options)..removeAt(event.index);
+      emit(state.copyWith(options: newOptions));
+    });
+    on<AddOptionEvent>((event, emit) {
+      final newOptions = List<Option>.from(state.options)..add(Option('New Option'));
+      emit(state.copyWith(options: newOptions));
+    });
+    on<SpinWheelEvent>((event, emit) {
+      final randomIndex = _random.nextInt(state.options.length);
+      _spinController?.add(randomIndex);
+      emit(state.copyWith(selectedIndex: randomIndex));
+    });
+  }
+
+  @override
+  Future<void> close() {
+    _spinController?.close();
+    return super.close();
   }
 }

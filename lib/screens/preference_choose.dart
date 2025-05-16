@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 class PreferenceChooseScreen extends StatefulWidget {
-  const PreferenceChooseScreen({Key? key}) : super(key: key);
+  const PreferenceChooseScreen({super.key});
 
   @override
   State<PreferenceChooseScreen> createState() => _PreferenceChooseScreenState();
@@ -153,8 +153,8 @@ class _FoodCard extends StatelessWidget {
     required this.price,
     this.selected = false,
     this.flag = 'like',
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {

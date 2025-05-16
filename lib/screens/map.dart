@@ -4,9 +4,11 @@ import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../blocs/restaurant_list_bloc.dart';
+import '../widgets/dialogs/map_popup.dart';
+import '../widgets/dialogs/list_dialog.dart';
 
 class MapScreen extends StatelessWidget {
-  const MapScreen({Key? key}) : super(key: key);
+  const MapScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +20,7 @@ class MapScreen extends StatelessWidget {
 }
 
 class MapScreenView extends StatefulWidget {
-  const MapScreenView({Key? key}) : super(key: key);
+  const MapScreenView({super.key});
 
   @override
   State<MapScreenView> createState() => _MapScreenViewState();
@@ -96,7 +98,7 @@ class _MapScreenViewState extends State<MapScreenView> {
 
 class _RestaurantCard extends StatelessWidget {
   final RestaurantInfo info;
-  const _RestaurantCard({Key? key, required this.info}) : super(key: key);
+  const _RestaurantCard({super.key, required this.info});
 
   @override
   Widget build(BuildContext context) {
@@ -172,12 +174,50 @@ class _RestaurantCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.favorite_border, color: Color(0xFFE95322)),
-                  onPressed: () {},
+                  icon: Transform.rotate(
+                    angle: 1.5708, // 90 degrees in radians
+                    child: const Icon(Icons.navigation, color: Color(0xFFE95322)),
+                  ),
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: context,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => MapPopup(
+                        onAppleMapSelected: () {
+                          // 处理 Apple Map 选择
+                          print('Apple Map selected');
+                        },
+                        onGoogleMapSelected: () {
+                          // 处理 Google Map 选择
+                          print('Google Map selected');
+                        },
+                      ),
+                    );
+                  },
                 ),
                 IconButton(
                   icon: const Icon(Icons.more_vert, color: Color(0xFF391713)),
-                  onPressed: () {},
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => ListDialog(
+                        onDislikeRestaurant: () {
+                          // TODO: 处理不喜欢餐厅
+                          print('Dislike restaurant');
+                        },
+                        onDislikeCuisine: () {
+                          // TODO: 处理不喜欢菜系
+                          print('Dislike cuisine');
+                        },
+                        onCancel: () {
+                          print('Cancel');
+                        },
+                        onConfirm: () {
+                          print('Confirm');
+                        },
+                      ),
+                    );
+                  },
                 ),
               ],
             ),

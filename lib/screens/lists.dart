@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../blocs/restaurant_list_bloc.dart';
+import '../widgets/dialogs/map_popup.dart';
+import '../widgets/dialogs/list_dialog.dart';
 
 class Lists extends StatelessWidget {
-  const Lists({Key? key}) : super(key: key);
+  const Lists({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -16,7 +18,7 @@ class Lists extends StatelessWidget {
 }
 
 class ListsView extends StatelessWidget {
-  const ListsView({Key? key}) : super(key: key);
+  const ListsView({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -88,7 +90,7 @@ class ListsView extends StatelessWidget {
 
 class _RestaurantCard extends StatelessWidget {
   final RestaurantInfo info;
-  const _RestaurantCard({Key? key, required this.info}) : super(key: key);
+  const _RestaurantCard({super.key, required this.info});
 
   @override
   Widget build(BuildContext context) {
@@ -164,12 +166,50 @@ class _RestaurantCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.favorite_border, color: Color(0xFFE95322)),
-                  onPressed: () {},
+                  icon: Transform.rotate(
+                    angle: 1.5708, // 90 degrees in radians
+                    child: const Icon(Icons.navigation, color: Color(0xFFE95322)),
+                  ),
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: context,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => MapPopup(
+                        onAppleMapSelected: () {
+                          // 处理 Apple Map 选择
+                          print('Apple Map selected');
+                        },
+                        onGoogleMapSelected: () {
+                          // 处理 Google Map 选择
+                          print('Google Map selected');
+                        },
+                      ),
+                    );
+                  },
                 ),
                 IconButton(
                   icon: const Icon(Icons.more_vert, color: Color(0xFF391713)),
-                  onPressed: () {},
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => ListDialog(
+                        onDislikeRestaurant: () {
+                          // TODO: 处理不喜欢餐厅
+                          print('Dislike restaurant');
+                        },
+                        onDislikeCuisine: () {
+                          // TODO: 处理不喜欢菜系
+                          print('Dislike cuisine');
+                        },
+                        onCancel: () {
+                          print('Cancel');
+                        },
+                        onConfirm: () {
+                          print('Confirm');
+                        },
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
