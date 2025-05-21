@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:what_to_eat/screens/forgetpassword_screen.dart';
+import 'package:what_to_eat/screens/register_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/preference_choose.dart';
 import 'screens/lists.dart';
@@ -12,6 +14,14 @@ final GoRouter _router = GoRouter(
     GoRoute(
       path: '/',
       builder: (context, state) => const LoginScreen(),
+    ),
+    GoRoute(
+      path: '/register',
+      builder: (context, state) => const RegisterScreen(),
+    ),
+    GoRoute(
+      path: '/forgot-password',
+      builder: (context, state) => const ForgotPasswordScreen(),
     ),
     GoRoute(
       path: '/preferenceChoose',
