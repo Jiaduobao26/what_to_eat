@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../auth/authentication_bloc.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -120,7 +122,9 @@ class LoginScreen extends StatelessWidget {
               const SizedBox(height: 32),
               TextButton(
                 onPressed: () {
-                  GoRouter.of(context).go('/preferenceChoose');
+                  context.read<AuthenticationBloc>().add(AuthenticationLoginRequested());
+                  // TODO: Handle the without sign in action
+                  // GoRouter.of(context).go('/preferenceChoose');
                 },
                 child: const Text(
                   'Continue without sign in',
