@@ -3,12 +3,37 @@ import 'package:go_router/go_router.dart';
 import '../auth/authentication_bloc.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+class _LoginScreenState extends State<LoginScreen> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return BlocListener<AuthenticationBloc, AuthenticationState>(
+      listener: (context, state) {
+        if (state.error != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.error!)),
+          );
+        }
+        if (state.isLoggedIn) {
+          context.go('/preferenceChoose');
+        }
+      },
+      child:Scaffold(
       backgroundColor: Colors.white,
       body: Center(
         child: SingleChildScrollView(
@@ -40,6 +65,7 @@ class LoginScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               TextField(
+                controller: _emailController,
                 decoration: InputDecoration(
                   hintText: 'Enter your email',
                   border: OutlineInputBorder(
@@ -63,6 +89,7 @@ class LoginScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               TextField(
+                controller: _passwordController,
                 obscureText: true,
                 decoration: InputDecoration(
                   hintText: 'Enter your password',
@@ -86,8 +113,22 @@ class LoginScreen extends StatelessWidget {
                     side: const BorderSide(color: Color(0xFF2C2C2C)),
                   ),
                 ),
-                onPressed: () {},
-                child: const Text('Sign In'),
+                onPressed: () {
+                  context.read<AuthenticationBloc>().add(
+                  AuthenticationLoginRequested(
+                    email: _emailController.text,
+                    password: _passwordController.text,
+                  ), 
+                  );
+                },
+                child: BlocBuilder<AuthenticationBloc, AuthenticationState>(
+                builder: (context, state) {
+                  if (state.isLoading) {
+                    return const CircularProgressIndicator(color: Colors.white);
+                  }
+                  return const Text('Sign In');
+                },
+              ),
               ),
               const SizedBox(height: 16),
               TextButton(
@@ -122,7 +163,12 @@ class LoginScreen extends StatelessWidget {
               const SizedBox(height: 32),
               TextButton(
                 onPressed: () {
-                  context.read<AuthenticationBloc>().add(AuthenticationLoginRequested());
+                  context.read<AuthenticationBloc>().add(
+                     AuthenticationLoginRequested(
+                    email: '',//A default email and password for testing
+                    password: '',
+                  ),
+                  );
                   // TODO: Handle the without sign in action
                   // GoRouter.of(context).go('/preferenceChoose');
                 },
@@ -140,6 +186,7 @@ class LoginScreen extends StatelessWidget {
           ),
         ),
       ),
+    )
     );
   }
 }

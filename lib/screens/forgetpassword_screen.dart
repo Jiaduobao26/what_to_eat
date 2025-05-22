@@ -1,12 +1,43 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:what_to_eat/auth/authentication_bloc.dart';
 
-class ForgotPasswordScreen extends StatelessWidget {
+class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
 
   @override
+  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+}
+
+class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
+  final _emailController = TextEditingController();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return BlocListener<AuthenticationBloc, AuthenticationState>(
+      listener: (context, state) {
+        if (state.error != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.error!)),
+          );
+        }
+        if (!state.isLoading && !state.isLoggedIn && state.error == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Reset password email sent!')),
+          );
+          Future.delayed(const Duration(seconds: 2), () {
+            context.go('/login');
+          });
+        }
+      },
+    child:Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -79,6 +110,11 @@ class ForgotPasswordScreen extends StatelessWidget {
                 ),
                 onPressed: () {
                   // 这里添加发送重置密码邮件的逻辑
+                  context.read<AuthenticationBloc>().add(
+                    AuthenticationResetPasswordRequested(
+                      email: _emailController.text,
+                    ),
+                  );
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Reset password email sent!'),
@@ -89,12 +125,20 @@ class ForgotPasswordScreen extends StatelessWidget {
                     context.go('/');
                   });
                 },
-                child: const Text('Send Reset Link'),
+                child: BlocBuilder<AuthenticationBloc, AuthenticationState>(
+                  builder: (context, state) {
+                    if (state.isLoading) {
+                      return const CircularProgressIndicator(color: Colors.white);
+                  }
+                  return const Text('Send Reset Link');
+                },
+                ),
               ),
             ],
           ),
         ),
       ),
+    ),
     );
   }
 }

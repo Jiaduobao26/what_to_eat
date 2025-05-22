@@ -22,7 +22,9 @@ class AppRouter {
     refreshListenable: GoRouterRefreshStream(authBloc.stream),
     redirect: (context, state) {
       final isLoggedIn = context.read<AuthenticationBloc>().state.isLoggedIn;
-      final loggingIn = state.uri.toString() == '/login';
+      final loggingIn = state.uri.toString() == '/login' || 
+                         state.uri.toString() == '/register' ||
+                         state.uri.toString() == '/forgot-password';
       print('redirect: $isLoggedIn, $loggingIn');
       if (!isLoggedIn && !loggingIn) {
         return '/login';
