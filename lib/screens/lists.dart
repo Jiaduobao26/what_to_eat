@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../blocs/restaurant_list_bloc.dart';
 import '../widgets/dialogs/map_popup.dart';
 import '../widgets/dialogs/list_dialog.dart';
+import '../widgets/bottom_navigation_bar_widget.dart';
 
 class Lists extends StatelessWidget {
   const Lists({super.key});
@@ -55,35 +56,7 @@ class ListsView extends StatelessWidget {
           itemBuilder: (context, index) => _RestaurantCard(info: state.restaurants[index]),
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.white,
-        selectedItemColor: const Color(0xFFFFA500),
-        unselectedItemColor: const Color(0xFF391713),
-        currentIndex: 0,
-        onTap: (i) {
-          if (i == 0) {
-            GoRouter.of(context).go('/lists');
-          } else if (i == 1) {
-            GoRouter.of(context).go('/wheel');
-          } else if (i == 2) {
-            GoRouter.of(context).go('/profile');
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.list),
-            label: 'List',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home, color: Color(0xFFE95322)),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
-      ),
+      bottomNavigationBar: const BottomNavigationBarWidget(currentIndex: 0),
     );
   }
 }

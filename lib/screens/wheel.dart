@@ -8,6 +8,7 @@ import '../widgets/dialogs/map_popup.dart';
 import 'dart:math';
 import 'dart:async';
 import '../models/restaurant.dart';
+import '../widgets/bottom_navigation_bar_widget.dart';
 
 class WheelOne extends StatelessWidget {
   const WheelOne({super.key});
@@ -564,35 +565,7 @@ class _WheelOneViewState extends State<WheelOneView> {
           );
         },
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.white,
-        selectedItemColor: const Color(0xFFFFA500),
-        unselectedItemColor: const Color(0xFF391713),
-        currentIndex: 1,
-        onTap: (i) {
-          if (i == 0) {
-            GoRouter.of(context).go('/lists');
-          } else if (i == 1) {
-            GoRouter.of(context).go('/wheel');
-          } else if (i == 2) {
-            GoRouter.of(context).go('/profile');
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.list),
-            label: 'List',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home, color: Color(0xFFE95322)),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
-      ),
+      bottomNavigationBar: const BottomNavigationBarWidget(currentIndex: 1),
     );
   }
 }
