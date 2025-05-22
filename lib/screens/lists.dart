@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../blocs/restaurant_list_bloc.dart';
 import '../widgets/dialogs/map_popup.dart';
 import '../widgets/dialogs/list_dialog.dart';
-import '../widgets/bottom_navigation_bar_widget.dart';
 
 class Lists extends StatelessWidget {
   const Lists({super.key});
@@ -25,30 +23,6 @@ class ListsView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFE95322),
-        elevation: 0,
-        title: const Text(
-          'Recommendation',
-          style: TextStyle(
-            color: Color(0xFF391713),
-            fontSize: 22,
-            fontFamily: 'Roboto',
-            fontWeight: FontWeight.w400,
-          ),
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: IconButton(
-              icon: const Icon(Icons.map, color: Color(0xFF391713)), 
-              onPressed: () {
-                GoRouter.of(context).go('/map');
-              },
-            ),
-          ),
-        ],
-      ),
       body: BlocBuilder<RestaurantListBloc, RestaurantListState>(
         builder: (context, state) => ListView.builder(
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
@@ -56,7 +30,6 @@ class ListsView extends StatelessWidget {
           itemBuilder: (context, index) => _RestaurantCard(info: state.restaurants[index]),
         ),
       ),
-      bottomNavigationBar: const BottomNavigationBarWidget(currentIndex: 0),
     );
   }
 }

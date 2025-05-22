@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_fortune_wheel/flutter_fortune_wheel.dart';
 import '../blocs/wheel_bloc.dart';
@@ -8,7 +7,6 @@ import '../widgets/dialogs/map_popup.dart';
 import 'dart:math';
 import 'dart:async';
 import '../models/restaurant.dart';
-import '../widgets/bottom_navigation_bar_widget.dart';
 
 class WheelOne extends StatelessWidget {
   const WheelOne({super.key});
@@ -95,30 +93,7 @@ class _WheelOneViewState extends State<WheelOneView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFE95322),
-        elevation: 0,
-        title: const Text(
-          'Wheel',
-          style: TextStyle(
-            color: Color(0xFF391713),
-            fontSize: 22,
-            fontFamily: 'Roboto',
-            fontWeight: FontWeight.w400,
-          ),
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: IconButton(
-              icon: const Icon(Icons.add, color: Color(0xFF391713)),
-              onPressed: () {
-                GoRouter.of(context).go('/add');
-              },
-            ),
-          ),
-        ],
-      ),
+
       body: BlocBuilder<WheelBloc, WheelState>(
         builder: (context, state) {
           // 同步选项到转盘
@@ -565,7 +540,6 @@ class _WheelOneViewState extends State<WheelOneView> {
           );
         },
       ),
-      bottomNavigationBar: const BottomNavigationBarWidget(currentIndex: 1),
     );
   }
 }
