@@ -98,7 +98,7 @@ class _MapScreenViewState extends State<MapScreenView> {
 
 class _RestaurantCard extends StatelessWidget {
   final RestaurantInfo info;
-  const _RestaurantCard({super.key, required this.info});
+  const _RestaurantCard({required this.info});
 
   @override
   Widget build(BuildContext context) {

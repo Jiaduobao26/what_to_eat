@@ -153,7 +153,6 @@ class _FoodCard extends StatelessWidget {
     required this.price,
     this.selected = false,
     this.flag = 'like',
-    super.key,
   });
 
   @override

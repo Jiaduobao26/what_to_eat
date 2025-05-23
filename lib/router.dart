@@ -58,7 +58,7 @@ class AppRouter {
             name: 'home', // add a name to the home route
             // TODO: if login, redirect to the wheel route
             // if not login, redirect to the preferenceChoose or ...
-            redirect: (_, __) => '/preferenceChoose', // redirect to the wheel route
+            redirect: (_, __) => '/wheel', // redirect to the wheel route
           ),
           GoRoute(
             path: '/preferenceChoose',

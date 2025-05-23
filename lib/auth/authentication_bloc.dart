@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:bloc/bloc.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 // Events
 abstract class AuthenticationEvent extends Equatable {
@@ -75,28 +76,34 @@ class AuthenticationBloc extends Bloc<AuthenticationEvent, AuthenticationState> 
     on<AuthenticationLoginRequested>((event, emit) async {
       emit(const AuthenticationState.loading());
       try {
-        // TODO: 实现实际的登录逻辑
-        await Future.delayed(const Duration(seconds: 1)); // 模拟网络请求
-        if (true) {
-          emit(const AuthenticationState.authenticated());
-        } else {
-          emit(const AuthenticationState.error("Invalid credentials"));
-        }
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: event.email,
+          password: event.password,
+        );
+        emit(const AuthenticationState.authenticated());
+      } on FirebaseAuthException catch (e) {
+        emit(AuthenticationState.error(e.message ?? "登录失败"));
       } catch (e) {
         emit(AuthenticationState.error(e.toString()));
       }
     });
 
-    on<AuthenticationLogoutRequested>((event, emit) {
+    on<AuthenticationLogoutRequested>((event, emit) async {
+      await FirebaseAuth.instance.signOut();
       emit(const AuthenticationState.unauthenticated());
     });
 
     on<AuthenticationRegisterRequested>((event, emit) async {
       emit(const AuthenticationState.loading());
       try {
-        // TODO: 实现实际的注册逻辑
-        await Future.delayed(const Duration(seconds: 1)); // 模拟网络请求
+        // Firebase 注册
+        await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: event.email,
+          password: event.password,
+        );
         emit(const AuthenticationState.authenticated());
+      } on FirebaseAuthException catch (e) {
+        emit(AuthenticationState.error(e.message ?? "注册失败"));
       } catch (e) {
         emit(AuthenticationState.error(e.toString()));
       }

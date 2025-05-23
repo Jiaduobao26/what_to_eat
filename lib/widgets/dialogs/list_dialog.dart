@@ -33,7 +33,7 @@ class _ListDialogState extends State<ListDialog> {
           minWidth: 280,
           maxWidth: 560,
         ),
-        child: Container(
+        child: SizedBox(
           width: 333,
           child: Column(
             mainAxisSize: MainAxisSize.min,

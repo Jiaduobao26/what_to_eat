@@ -5,7 +5,7 @@ import 'dart:async';
 
 class Option extends Equatable {
   final String name;
-  Option(this.name);
+  const Option(this.name);
 
   @override
   List<Object?> get props => [name];

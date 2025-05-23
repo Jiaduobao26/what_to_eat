@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../auth/authentication_bloc.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -84,7 +86,8 @@ class ProfileScreen extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
                 ),
                 onPressed: () {
-                  GoRouter.of(context).go('/');
+                  context.read<AuthenticationBloc>().add(AuthenticationLogoutRequested());
+                  GoRouter.of(context).go('/login');
                 },
                 child: const Text('Logout', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
               ),
