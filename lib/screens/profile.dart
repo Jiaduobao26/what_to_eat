@@ -147,8 +147,52 @@ class ProfileScreen extends StatelessWidget {
                 .doc(user?.uid)
                 .snapshots(),
               builder: (context, snapshot) {
-                final name = snapshot.data?.get('name') as String? ?? 'User Name';
-                final email = snapshot.data?.get('email') as String? ?? 'user@email.com';
+                if (!snapshot.hasData || !snapshot.data!.exists) {
+                  return Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: const SizedBox(
+                          width: 91,
+                          height: 100,
+                          child: Icon(Icons.image, size: 60, color: Colors.grey),
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            user?.displayName ?? 'User Name',
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 18,
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Opacity(
+                            opacity: 0.5,
+                            child: Text(
+                              user?.email ?? 'user@email.com',
+                              style: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 15,
+                                fontFamily: 'SF Pro Text',
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                }
+
+                final data = snapshot.data!.data() as Map<String, dynamic>?;
+                final name = data?['name'] as String? ?? user?.displayName ?? 'User Name';
+                final email = data?['email'] as String? ?? user?.email ?? 'user@email.com';
                 
                 return Row(
                   children: [
