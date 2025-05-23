@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:bloc/bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 // Events
 abstract class AuthenticationEvent extends Equatable {
@@ -28,14 +29,16 @@ class AuthenticationLogoutRequested extends AuthenticationEvent {}
 class AuthenticationRegisterRequested extends AuthenticationEvent {
   final String email;
   final String password;
+  final String name;
 
   const AuthenticationRegisterRequested({
     required this.email,
     required this.password,
+    required this.name,
   });
 
   @override
-  List<Object> get props => [email, password];
+  List<Object> get props => [email, password, name];
 }
 
 class AuthenticationResetPasswordRequested extends AuthenticationEvent {
@@ -96,14 +99,22 @@ class AuthenticationBloc extends Bloc<AuthenticationEvent, AuthenticationState> 
     on<AuthenticationRegisterRequested>((event, emit) async {
       emit(const AuthenticationState.loading());
       try {
-        // Firebase 注册
-        await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: event.email,
           password: event.password,
         );
+        // 写入 Firestore
+        await FirebaseFirestore.instanceFor(
+          app: FirebaseFirestore.instance.app,
+          databaseId: 'userinfo', 
+        ).collection('userinfo').doc(userCredential.user!.uid).set({
+          'name': event.name,
+          'email': event.email,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
         emit(const AuthenticationState.authenticated());
       } on FirebaseAuthException catch (e) {
-        emit(AuthenticationState.error(e.message ?? "注册失败"));
+        emit(AuthenticationState.error(e.message ?? "failed to register"));
       } catch (e) {
         emit(AuthenticationState.error(e.toString()));
       }

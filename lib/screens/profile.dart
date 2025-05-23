@@ -2,12 +2,124 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../auth/authentication_bloc.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
+  void _showEditDialog(BuildContext context, String currentName) {
+    final nameController = TextEditingController(text: currentName);
+    final passwordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Profile'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Name',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your name';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: passwordController,
+                decoration: const InputDecoration(
+                  labelText: 'New Password (optional)',
+                  border: OutlineInputBorder(),
+                ),
+                obscureText: true,
+                validator: (value) {
+                  if (value != null && value.isNotEmpty && value.length < 6) {
+                    return 'Password must be at least 6 characters';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: confirmPasswordController,
+                decoration: const InputDecoration(
+                  labelText: 'Confirm New Password',
+                  border: OutlineInputBorder(),
+                ),
+                obscureText: true,
+                validator: (value) {
+                  if (passwordController.text.isNotEmpty && value != passwordController.text) {
+                    return 'Passwords do not match';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (formKey.currentState?.validate() ?? false) {
+                try {
+                  final user = FirebaseAuth.instance.currentUser;
+                  if (user != null) {
+                    // Update Firestore
+                    await FirebaseFirestore.instanceFor(
+                      app: FirebaseFirestore.instance.app,
+                      databaseId: 'userinfo',
+                    ).collection('userinfo').doc(user.uid).update({
+                      'name': nameController.text,
+                    });
+
+                    // Update password if provided
+                    if (passwordController.text.isNotEmpty) {
+                      await user.updatePassword(passwordController.text);
+                    }
+
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Profile updated successfully')),
+                      );
+                    }
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error updating profile: $e')),
+                    );
+                  }
+                }
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    
     return Scaffold(
       backgroundColor: Colors.white, 
       body: Padding(
@@ -26,48 +138,73 @@ class ProfileScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 32),
-            Row(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: const SizedBox(
-                    width: 91,
-                    height: 100,
-                    child: Icon(Icons.image, size: 60, color: Colors.grey),
-                  ),
-                ),
-                const SizedBox(width: 24),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      'Marvis Ighedosa',
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 18,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w600,
+            StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instanceFor(
+                app: FirebaseFirestore.instance.app,
+                databaseId: 'userinfo',
+              )
+                .collection('userinfo')
+                .doc(user?.uid)
+                .snapshots(),
+              builder: (context, snapshot) {
+                final name = snapshot.data?.get('name') as String? ?? 'User Name';
+                final email = snapshot.data?.get('email') as String? ?? 'user@email.com';
+                
+                return Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: const SizedBox(
+                        width: 91,
+                        height: 100,
+                        child: Icon(Icons.image, size: 60, color: Colors.grey),
                       ),
                     ),
-                    SizedBox(height: 8),
-                    Opacity(
-                      opacity: 0.5,
-                      child: Text(
-                        'Dosamarvis@gmail.com',
-                        style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 15,
-                          fontFamily: 'SF Pro Text',
-                          fontWeight: FontWeight.w400,
+                    const SizedBox(width: 24),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 18,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 8),
+                        Opacity(
+                          opacity: 0.5,
+                          child: Text(
+                            email,
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 15,
+                              fontFamily: 'SF Pro Text',
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
-                ),
-              ],
+                );
+              },
             ),
             const SizedBox(height: 32),
-            _ProfileItem(title: 'Personal details', trailing: 'change'),
+            _ProfileItem(
+              title: 'Personal details',
+              trailing: 'change',
+              onTap: () {
+                final name = (FirebaseFirestore.instanceFor(
+                  app: FirebaseFirestore.instance.app,
+                  databaseId: 'userinfo',
+                ).collection('userinfo').doc(user?.uid).get() as Future<DocumentSnapshot>)
+                    .then((doc) => doc.get('name') as String? ?? 'User Name');
+                name.then((currentName) => _showEditDialog(context, currentName));
+              },
+            ),
             const SizedBox(height: 16),
             _ProfileItem(title: 'Preference'),
             const SizedBox(height: 16),
@@ -103,47 +240,57 @@ class ProfileScreen extends StatelessWidget {
 class _ProfileItem extends StatelessWidget {
   final String title;
   final String? trailing;
-  const _ProfileItem({required this.title, this.trailing, super.key});
+  final VoidCallback? onTap;
+  
+  const _ProfileItem({
+    required this.title,
+    this.trailing,
+    this.onTap,
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0x07000000),
-            blurRadius: 40,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.black,
-              fontSize: 18,
-              fontFamily: 'Inter',
-              fontWeight: FontWeight.w600,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0x07000000),
+              blurRadius: 40,
+              offset: const Offset(0, 10),
             ),
-          ),
-          if (trailing != null)
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
             Text(
-              trailing!,
+              title,
               style: const TextStyle(
-                color: Color(0xFFFA4A0C),
-                fontSize: 15,
-                fontFamily: 'SF Pro Text',
-                fontWeight: FontWeight.w400,
+                color: Colors.black,
+                fontSize: 18,
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w600,
               ),
             ),
-        ],
+            if (trailing != null)
+              Text(
+                trailing!,
+                style: const TextStyle(
+                  color: Color(0xFFFA4A0C),
+                  fontSize: 15,
+                  fontFamily: 'SF Pro Text',
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

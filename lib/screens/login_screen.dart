@@ -30,7 +30,7 @@ class _LoginScreenState extends State<LoginScreen> {
           );
         }
         if (state.isLoggedIn) {
-          context.go('/preferenceChoose');
+          context.go('/wheel');
         }
       },
       child:Scaffold(
@@ -163,14 +163,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 32),
               TextButton(
                 onPressed: () {
-                  context.read<AuthenticationBloc>().add(
-                     AuthenticationLoginRequested(
-                    email: '',//A default email and password for testing
-                    password: '',
-                  ),
-                  );
-                  // TODO: Handle the without sign in action
-                  // GoRouter.of(context).go('/preferenceChoose');
+                   context.go('/wheel');
                 },
                 child: const Text(
                   'Continue without sign in',
