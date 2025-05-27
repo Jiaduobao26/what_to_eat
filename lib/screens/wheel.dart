@@ -28,8 +28,8 @@ class WheelOneView extends StatefulWidget {
 }
 
 class _WheelOneViewState extends State<WheelOneView> {
+  int? _selectedIndex;
   late StreamController<int> _streamController;
-  late Random _random;
   bool _isSpinning = false;
   List<Restaurant> _restaurants = [];
   Restaurant? _selectedRestaurant;
@@ -38,38 +38,9 @@ class _WheelOneViewState extends State<WheelOneView> {
   void initState() {
     super.initState();
     _streamController = StreamController<int>();
-    _random = Random();
     // 初始化餐厅列表
-    _restaurants = [
-      Restaurant(
-        name: 'Restaurant 1',
-        cuisine: 'Chinese',
-        rating: 4.5,
-        address: '123 Main St',
-        imageUrl: 'https://picsum.photos/200',
-      ),
-      Restaurant(
-        name: 'Restaurant 2',
-        cuisine: 'Japanese',
-        rating: 4.8,
-        address: '456 Oak Ave',
-        imageUrl: 'https://picsum.photos/201',
-      ),
-      Restaurant(
-        name: 'Restaurant 3',
-        cuisine: 'Western',
-        rating: 4.2,
-        address: '789 Pine Rd',
-        imageUrl: 'https://picsum.photos/202',
-      ),
-      Restaurant(
-        name: 'Restaurant 4',
-        cuisine: 'Korean',
-        rating: 4.6,
-        address: '321 Elm St',
-        imageUrl: 'https://picsum.photos/203',
-      ),
-    ];
+    // 不用初始化餐厅列表，wheel 转完之后，请求 cuisine 对应餐厅
+    _restaurants = [];
   }
 
   @override
@@ -79,18 +50,24 @@ class _WheelOneViewState extends State<WheelOneView> {
   }
 
   void _onWheelStop() {
-    if (_isSpinning) {
+    if (_isSpinning && _selectedIndex != null) {
       setState(() {
         _isSpinning = false;
+        _selectedRestaurant = _restaurants[_selectedIndex!];
+        // 获取 Bloc 最新 options
+        final options = context.read<WheelBloc>().state.options;
+        final selectedOption = options[_selectedIndex!];
+        context.read<WheelBloc>().add(FetchRestaurantEvent(selectedOption.keyword));
       });
-      // 移除弹窗，直接更新餐厅信息
-      final selectedIndex = _random.nextInt(_restaurants.length);
-      _selectedRestaurant = _restaurants[selectedIndex];
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final wheelBloc = context.read<WheelBloc>();
+    // 打印菜系数据
+    print('Cuisines: ${wheelBloc.cuisines.map((c) => c.name).toList()}');
+  
     return Scaffold(
       backgroundColor: Colors.white,
 
@@ -111,30 +88,41 @@ class _WheelOneViewState extends State<WheelOneView> {
                 const SizedBox(height: 40),
                 SizedBox(
                   height: 300,
-                  child: FortuneWheel(
-                    selected: _streamController.stream,
-                    animateFirst: false,
-                    onAnimationEnd: _onWheelStop,
-                    items: [
-                      for (var restaurant in _restaurants)
-                        FortuneItem(
+                  child: state.options.length > 1
+                      ? FortuneWheel(
+                          selected: _streamController.stream,
+                          animateFirst: false,
+                          onAnimationEnd: _onWheelStop,
+                          items: [
+                            for (var option in state.options)
+                              FortuneItem(
+                                child: Text(
+                                  option.name,
+                                  style: const TextStyle(
+                                    color: Color(0xFF391713),
+                                    fontSize: 16,
+                                    fontFamily: 'Roboto',
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                style: FortuneItemStyle(
+                                  color: const Color(0xFFFFF3E0),
+                                  borderColor: const Color(0xFFE95322),
+                                  borderWidth: 3,
+                                ),
+                              ),
+                          ],
+                        )
+                      : Center(
                           child: Text(
-                            restaurant.name,
-                            style: const TextStyle(
-                              color: Color(0xFF391713),
-                              fontSize: 16,
+                            'Please add at least 2 options to spin the wheel',
+                            style: TextStyle(
+                              color: Colors.red[700],
+                              fontSize: 14,
                               fontFamily: 'Roboto',
-                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          style: FortuneItemStyle(
-                            color: const Color(0xFFFFF3E0),
-                            borderColor: const Color(0xFFE95322),
-                            borderWidth: 3,
-                          ),
                         ),
-                    ],
-                  ),
                 ),
                 const SizedBox(height: 40),
                 BlocBuilder<WheelBloc, WheelState>(
@@ -169,6 +157,7 @@ class _WheelOneViewState extends State<WheelOneView> {
                               _streamController.add(randomIndex);
                               setState(() {
                                 _isSpinning = true;
+                                _selectedIndex = randomIndex;
                               });
                             } : null,
                             child: const Text(
@@ -183,84 +172,7 @@ class _WheelOneViewState extends State<WheelOneView> {
                           )
                         else
                           Column(
-                            children: [
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFFFA500),
-                                  foregroundColor: const Color(0xFF391713),
-                                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(100),
-                                  ),
-                                ),
-                                onPressed: () {
-                                  showModalBottomSheet(
-                                    context: context,
-                                    backgroundColor: Colors.transparent,
-                                    builder: (dialogContext) => MapPopup(
-                                      onAppleMapSelected: () {
-                                        // 处理 Apple Map 选择
-                                        print('Apple Map selected');
-                                      },
-                                      onGoogleMapSelected: () {
-                                        // 处理 Google Map 选择
-                                        print('Google Map selected');
-                                      },
-                                    ),
-                                  );
-                                },
-                                child: const Text(
-                                  "Let's Go!",
-                                  style: TextStyle(
-                                    fontSize: 17,
-                                    fontFamily: 'League Spartan',
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: -0.09,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.white,
-                                  foregroundColor: const Color(0xFF391713),
-                                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(100),
-                                    side: const BorderSide(color: Color(0xFFFFA500)),
-                                  ),
-                                ),
-                                onPressed: () async {
-                                  final randomIndex = Random().nextInt(context.read<WheelBloc>().state.options.length);
-                                  _streamController.add(randomIndex);
-                                  await Future.delayed(const Duration(seconds: 3));
-                                  if (context.mounted) {
-                                    final selectedOption = context.read<WheelBloc>().state.options[randomIndex];
-                                    showDialog(
-                                      context: context,
-                                      builder: (dialogContext) => ResultDialog(
-                                        title: selectedOption.name,
-                                        description: 'Locally owned restaurant serving up a variety of traditional Chinese ...',
-                                        price: '¥88',
-                                        onClose: () {
-                                          Navigator.of(dialogContext).pop();
-                                          context.read<WheelBloc>().add(ShowResultEvent());
-                                        },
-                                      ),
-                                    );
-                                  }
-                                },
-                                child: const Text(
-                                  'Try Again',
-                                  style: TextStyle(
-                                    fontSize: 17,
-                                    fontFamily: 'League Spartan',
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: -0.09,
-                                  ),
-                                ),
-                              ),
-                            ],
+                            children: [],
                           ),
                       ],
                     );
@@ -334,19 +246,37 @@ class _WheelOneViewState extends State<WheelOneView> {
                                             borderRadius: BorderRadius.circular(12),
                                             border: Border.all(color: const Color(0xFFE95322), width: 1.2),
                                           ),
-                                          child: TextFormField(
-                                            initialValue: state.options[i].name,
-                                            style: const TextStyle(
-                                              color: Color(0xFF391713),
-                                              fontSize: 16,
-                                              fontFamily: 'Roboto',
-                                            ),
+                                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                                          child: DropdownButtonFormField<Option>(
+                                            value: state.options[i].keyword.isEmpty ? null : state.options[i],
+                                            isExpanded: true,
                                             decoration: const InputDecoration(
                                               border: InputBorder.none,
-                                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                                             ),
-                                            onChanged: (val) {
-                                              context.read<WheelBloc>().add(UpdateOptionEvent(i, val));
+                                            hint: const Text('choose a cuisine'),
+                                            items: context.read<WheelBloc>().cuisines.map((cuisine) {
+                                              final isSelected = state.options
+                                                  .where((opt) => opt != state.options[i])
+                                                  .any((opt) => opt.keyword == cuisine.keyword);
+                                              final option = Option(name: cuisine.name, keyword: cuisine.keyword);
+                                              return DropdownMenuItem<Option>(
+                                                value: option,
+                                                enabled: !isSelected,
+                                                child: Text(
+                                                  cuisine.name,
+                                                  style: TextStyle(
+                                                    color: isSelected ? Colors.grey : const Color(0xFF391713),
+                                                    fontSize: 16,
+                                                    fontFamily: 'Roboto',
+                                                  ),
+                                                ),
+                                              );
+                                            }).toList(),
+                                            onChanged: (option) {
+                                              if (option != null) {
+                                                context.read<WheelBloc>().add(UpdateOptionEvent(i, option.name, option.keyword));
+                                              }
                                             },
                                           ),
                                         ),
@@ -362,17 +292,37 @@ class _WheelOneViewState extends State<WheelOneView> {
                                   ),
                                 )),
                                 const SizedBox(height: 8),
-                                OutlinedButton.icon(
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: const Color(0xFFE95322),
-                                    side: const BorderSide(color: Color(0xFFE95322)),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: const Color(0xFFE95322),
+                                        side: const BorderSide(color: Color(0xFFE95322)),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                      onPressed: () => context.read<WheelBloc>().add(AddOptionEvent()),
+                                      icon: const Icon(Icons.add),
+                                      label: const Text('Add Option'),
+                                    ),
                                   ),
-                                  onPressed: () => context.read<WheelBloc>().add(AddOptionEvent()),
-                                  icon: const Icon(Icons.add),
-                                  label: const Text('Add Option'),
-                                ),
-                              ],
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: const Color(0xFFE95322),
+                                        side: const BorderSide(color: Color(0xFFE95322)),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                      onPressed: () {
+                                        context.read<WheelBloc>().add(CloseModifyEvent());
+                                      },
+                                      child: const Text('Close'),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                                                            ],
                             ),
                           ),
                         ],
@@ -382,7 +332,7 @@ class _WheelOneViewState extends State<WheelOneView> {
                   },
                 ),
                 const SizedBox(height: 40),
-                if (_selectedRestaurant != null) ...[
+                if (state.selectedRestaurant != null) ...[
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFFFA500),
@@ -429,9 +379,12 @@ class _WheelOneViewState extends State<WheelOneView> {
                         side: const BorderSide(color: Color(0xFFFFA500)),
                       ),
                     ),
-                    onPressed: () {
+                    onPressed: () async {
+                      final randomIndex = Random().nextInt(context.read<WheelBloc>().state.options.length);
+                      _streamController.add(randomIndex);
                       setState(() {
-                        _selectedRestaurant = null;
+                        _isSpinning = true;
+                        _selectedIndex = randomIndex;
                       });
                     },
                     child: const Text(
@@ -491,7 +444,7 @@ class _WheelOneViewState extends State<WheelOneView> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    _selectedRestaurant!.name,
+                                    state.selectedRestaurant!.name,
                                     style: const TextStyle(
                                       color: Color(0xFF391713),
                                       fontSize: 20,
@@ -501,7 +454,7 @@ class _WheelOneViewState extends State<WheelOneView> {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    'Cuisine: ${_selectedRestaurant!.cuisine}',
+                                    'Cuisine: ${state.selectedRestaurant!.cuisine}',
                                     style: const TextStyle(
                                       color: Color(0xFF391713),
                                       fontSize: 16,
@@ -509,7 +462,7 @@ class _WheelOneViewState extends State<WheelOneView> {
                                     ),
                                   ),
                                   Text(
-                                    'Rating: ${_selectedRestaurant!.rating}',
+                                    'Rating: ${state.selectedRestaurant!.rating}',
                                     style: const TextStyle(
                                       color: Color(0xFF391713),
                                       fontSize: 16,
@@ -523,7 +476,7 @@ class _WheelOneViewState extends State<WheelOneView> {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          'Address: ${_selectedRestaurant!.address}',
+                          'Address: ${state.selectedRestaurant!.address}',
                           style: const TextStyle(
                             color: Color(0xFF79747E),
                             fontSize: 14,
