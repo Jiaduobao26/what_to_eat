@@ -1,0 +1,24 @@
+{
+  "cuisines": [
+    { "name": "Chinese", "keyword": "chinese" },
+    { "name": "Japanese", "keyword": "japanese" },
+    { "name": "Korean", "keyword": "korean" },
+    { "name": "Thai", "keyword": "thai" },
+    { "name": "Vietnamese", "keyword": "vietnamese" },
+    { "name": "Indian", "keyword": "indian" },
+    { "name": "Italian", "keyword": "italian" },
+    { "name": "French", "keyword": "french" },
+    { "name": "American", "keyword": "american" },
+    { "name": "Mexican", "keyword": "mexican" },
+    { "name": "Mediterranean", "keyword": "mediterranean" },
+    { "name": "Greek", "keyword": "greek" },
+    { "name": "Spanish", "keyword": "spanish" },
+    { "name": "Lebanese", "keyword": "lebanese" },
+    { "name": "German", "keyword": "german" },
+    { "name": "Turkish", "keyword": "turkish" },
+    { "name": "Brazilian", "keyword": "brazilian" },
+    { "name": "Cuban", "keyword": "cuban" },
+    { "name": "African", "keyword": "african" },
+    { "name": "Halal", "keyword": "halal" }
+  ]
+}
