@@ -50,26 +50,31 @@ class AuthenticationResetPasswordRequested extends AuthenticationEvent {
   List<Object> get props => [email];
 }
 
+class AuthenticationGuestRequested extends AuthenticationEvent {}
+
 // States
 class AuthenticationState extends Equatable {
   final bool isLoggedIn;
+  final bool isGuest;
   final String? error;
   final bool isLoading;
 
   const AuthenticationState._({
     required this.isLoggedIn,
+    this.isGuest = false,
     this.error,
     this.isLoading = false,
   });
 
-  const AuthenticationState.authenticated() : this._(isLoggedIn: true);
-  const AuthenticationState.unauthenticated() : this._(isLoggedIn: false);
-  const AuthenticationState.loading() : this._(isLoggedIn: false, isLoading: true);
+  const AuthenticationState.authenticated() : this._(isLoggedIn: true, isGuest: false);
+  const AuthenticationState.unauthenticated() : this._(isLoggedIn: false, isGuest: false);
+  const AuthenticationState.guest() : this._(isLoggedIn: false, isGuest: true);
+  const AuthenticationState.loading() : this._(isLoggedIn: false, isGuest: false, isLoading: true);
   const AuthenticationState.error(String message) 
-      : this._(isLoggedIn: false, error: message);
+      : this._(isLoggedIn: false, isGuest: false, error: message);
 
   @override
-  List<Object?> get props => [isLoggedIn, error, isLoading];
+  List<Object?> get props => [isLoggedIn, isGuest, error, isLoading];
 }
 
 // Bloc
@@ -79,10 +84,17 @@ class AuthenticationBloc extends Bloc<AuthenticationEvent, AuthenticationState> 
     on<AuthenticationLoginRequested>((event, emit) async {
       emit(const AuthenticationState.loading());
       try {
-        await FirebaseAuth.instance.signInWithEmailAndPassword(
+        final userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
           email: event.email,
           password: event.password,
         );
+        final user = userCredential.user;
+        if (user != null && !user.emailVerified) {
+          await user.sendEmailVerification();
+          emit(AuthenticationState.error('请先前往邮箱完成验证，已重新发送验证邮件'));
+          await FirebaseAuth.instance.signOut();
+          return;
+        }
         emit(const AuthenticationState.authenticated());
       } on FirebaseAuthException catch (e) {
         emit(AuthenticationState.error(e.message ?? "登录失败"));
@@ -112,6 +124,10 @@ class AuthenticationBloc extends Bloc<AuthenticationEvent, AuthenticationState> 
           'email': event.email,
           'createdAt': FieldValue.serverTimestamp(),
         });
+        // 设置FirebaseAuth用户的displayName
+        await userCredential.user?.updateDisplayName(event.name);
+        // 发送邮箱验证邮件
+        await userCredential.user?.sendEmailVerification();
         emit(const AuthenticationState.authenticated());
       } on FirebaseAuthException catch (e) {
         emit(AuthenticationState.error(e.message ?? "failed to register"));
@@ -129,6 +145,10 @@ class AuthenticationBloc extends Bloc<AuthenticationEvent, AuthenticationState> 
       } catch (e) {
         emit(AuthenticationState.error(e.toString()));
       }
+    });
+
+    on<AuthenticationGuestRequested>((event, emit) async {
+      emit(const AuthenticationState.guest());
     });
   }
 }

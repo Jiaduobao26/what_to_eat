@@ -21,15 +21,17 @@ class AppRouter {
   late final GoRouter router = GoRouter(
     refreshListenable: GoRouterRefreshStream(authBloc.stream),
     redirect: (context, state) {
-      final isLoggedIn = context.read<AuthenticationBloc>().state.isLoggedIn;
+      final authState = context.read<AuthenticationBloc>().state;
+      final isLoggedIn = authState.isLoggedIn;
+      final isGuest = authState.isGuest;
       final loggingIn = state.uri.toString() == '/login' || 
                          state.uri.toString() == '/register' ||
                          state.uri.toString() == '/forgot-password';
-      print('redirect: $isLoggedIn, $loggingIn');
-      if (!isLoggedIn && !loggingIn) {
+      print('redirect: $isLoggedIn, $isGuest, $loggingIn');
+      if (!isLoggedIn && !isGuest && !loggingIn) {
         return '/login';
       }
-      if (isLoggedIn && loggingIn) {
+      if ((isLoggedIn || isGuest) && loggingIn) {
         return '/';
       }
       return null;

@@ -3,6 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../blocs/restaurant_list_bloc.dart';
 import '../widgets/dialogs/map_popup.dart';
 import '../widgets/dialogs/list_dialog.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:geolocator/geolocator.dart';
 
 class Lists extends StatelessWidget {
   const Lists({super.key});
@@ -16,30 +19,146 @@ class Lists extends StatelessWidget {
   }
 }
 
-class ListsView extends StatelessWidget {
+class ListsView extends StatefulWidget {
   const ListsView({super.key});
+
+  @override
+  State<ListsView> createState() => _ListsViewState();
+}
+
+class _ListsViewState extends State<ListsView> {
+  List<Map<String, dynamic>> _restaurants = [];
+  bool _loading = true;
+  String? _error;
+  String? _nextPageToken;
+  final ScrollController _scrollController = ScrollController();
+  bool _isLoadingMore = false;
+
+  // 你可以将API_KEY放到安全的地方
+  static const String apiKey = 'AIzaSyBUUuCGzKK9z-yY2gHz1kvvTzhIufEkQZc';
+  // Santa Clara, CA 95051
+  double lat = 37.3467;
+  double lng = -121.9842;
+
+  @override
+  void initState() {
+    super.initState();
+    getCurrentLocation();
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 100) {
+        if (_nextPageToken != null && !_isLoadingMore) {
+          fetchNearbyRestaurants(loadMore: true);
+        }
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: BlocBuilder<RestaurantListBloc, RestaurantListState>(
-        builder: (context, state) => ListView.builder(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
-          itemCount: state.restaurants.length,
-          itemBuilder: (context, index) => _RestaurantCard(info: state.restaurants[index]),
-        ),
-      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView.builder(
+              controller: _scrollController,
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
+              itemCount: _restaurants.length + (_nextPageToken != null ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (index < _restaurants.length) {
+                  return _GoogleRestaurantCard(info: _restaurants[index]);
+                } else {
+                  // 加载更多loading
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+              },
+            ),
     );
+  }
+
+  Future<void> fetchNearbyRestaurants({bool loadMore = false}) async {
+    if (loadMore && (_nextPageToken == null || _isLoadingMore)) return;
+    setState(() {
+      if (!loadMore) _loading = true;
+      _error = null;
+      if (loadMore) _isLoadingMore = true;
+    });
+    try {
+      String url =
+          'https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=$lat,$lng&radius=2000&type=restaurant&key=$apiKey&language=en';
+      if (loadMore && _nextPageToken != null) {
+        url += '&pagetoken=$_nextPageToken';
+      }
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final results = data['results'] as List;
+        setState(() {
+          if (loadMore) {
+            _restaurants.addAll(results.map((e) => e as Map<String, dynamic>));
+          } else {
+            _restaurants = results.map((e) => e as Map<String, dynamic>).toList();
+          }
+          _nextPageToken = data['next_page_token'];
+          _loading = false;
+          _isLoadingMore = false;
+        });
+      } else {
+        setState(() {
+          _error = '网络错误';
+          _loading = false;
+          _isLoadingMore = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+        _isLoadingMore = false;
+      });
+    }
+  }
+
+  Future<void> getCurrentLocation() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return;
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) return;
+      }
+      if (permission == LocationPermission.deniedForever) return;
+      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      setState(() {
+        lat = position.latitude;
+        lng = position.longitude;
+      });
+      fetchNearbyRestaurants();
+    } catch (e) {
+      // 定位失败，继续用默认值
+      fetchNearbyRestaurants();
+    }
   }
 }
 
-class _RestaurantCard extends StatelessWidget {
-  final RestaurantInfo info;
-  const _RestaurantCard({super.key, required this.info});
+class _GoogleRestaurantCard extends StatelessWidget {
+  final Map<String, dynamic> info;
+  const _GoogleRestaurantCard({super.key, required this.info});
 
   @override
   Widget build(BuildContext context) {
+    final name = info['name'] ?? '';
+    final rating = info['rating']?.toString() ?? '-';
+    final address = info['vicinity'] ?? '';
+    final photoRef = (info['photos'] != null && info['photos'].isNotEmpty)
+        ? info['photos'][0]['photo_reference']
+        : null;
+    final imageUrl = photoRef != null
+        ? 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=$photoRef&key=${_ListsViewState.apiKey}'
+        : null;
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -49,11 +168,20 @@ class _RestaurantCard extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(20),
-              child: const SizedBox(
-                width: 93,
-                height: 93,
-                child: Icon(Icons.image, size: 60, color: Colors.grey),
-              ),
+              child: imageUrl != null
+                  ? Image.network(
+                      imageUrl,
+                      width: 93,
+                      height: 93,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const Icon(Icons.broken_image, size: 60, color: Colors.grey),
+                    )
+                  : const SizedBox(
+                      width: 93,
+                      height: 93,
+                      child: Icon(Icons.image, size: 60, color: Colors.grey),
+                    ),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -61,7 +189,7 @@ class _RestaurantCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    info.name,
+                    name,
                     style: const TextStyle(
                       color: Colors.black,
                       fontSize: 16,
@@ -73,7 +201,7 @@ class _RestaurantCard extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        info.rating.toStringAsFixed(1),
+                        rating,
                         style: const TextStyle(
                           color: Color(0xFF79747E),
                           fontSize: 12,
@@ -82,20 +210,11 @@ class _RestaurantCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 5),
                       const Icon(Icons.star, color: Color(0xFFFFA500), size: 16),
-                      const SizedBox(width: 5),
-                      Text(
-                        '(${info.reviews})',
-                        style: const TextStyle(
-                          color: Color(0xFF79747E),
-                          fontSize: 12,
-                          fontFamily: 'Roboto',
-                        ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    info.description,
+                    address,
                     style: const TextStyle(
                       color: Color(0xFF79747E),
                       fontSize: 12,

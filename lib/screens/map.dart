@@ -1,9 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../blocs/restaurant_list_bloc.dart';
+import 'package:http/http.dart' as http;
+import 'package:geolocator/geolocator.dart';
 import '../widgets/dialogs/map_popup.dart';
 import '../widgets/dialogs/list_dialog.dart';
 
@@ -12,10 +12,7 @@ class MapScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => RestaurantListBloc(),
-      child: const MapScreenView(),
-    );
+    return const MapScreenView();
   }
 }
 
@@ -27,14 +24,87 @@ class MapScreenView extends StatefulWidget {
 }
 
 class _MapScreenViewState extends State<MapScreenView> {
+  List<Map<String, dynamic>> _restaurants = [];
+  bool _loading = true;
+  String? _error;
+  Set<Marker> _markers = {};
+  GoogleMapController? _mapController;
+  static const String apiKey = 'AIzaSyBUUuCGzKK9z-yY2gHz1kvvTzhIufEkQZc';
+  // Santa Clara, CA 95051
+  double lat = 37.3467;
+  double lng = -121.9842;
+
   @override
   void initState() {
     super.initState();
-    _requestLocationPermission();
+    getCurrentLocation();
   }
 
-  Future<void> _requestLocationPermission() async {
-    await Permission.location.request();
+  Future<void> getCurrentLocation() async {
+    try {
+      await Permission.location.request();
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return fetchNearbyRestaurants();
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) return fetchNearbyRestaurants();
+      }
+      if (permission == LocationPermission.deniedForever) return fetchNearbyRestaurants();
+      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      setState(() {
+        lat = position.latitude;
+        lng = position.longitude;
+      });
+      fetchNearbyRestaurants();
+    } catch (e) {
+      fetchNearbyRestaurants();
+    }
+  }
+
+  Future<void> fetchNearbyRestaurants() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final url =
+          'https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=$lat,$lng&radius=2000&type=restaurant&key=$apiKey&language=en';
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final results = data['results'] as List;
+        setState(() {
+          _restaurants = results.map((e) => e as Map<String, dynamic>).toList();
+          _markers = _restaurants.map((r) {
+            final loc = r['geometry']['location'];
+            return Marker(
+              markerId: MarkerId(r['place_id']),
+              position: LatLng(loc['lat'], loc['lng']),
+              infoWindow: InfoWindow(title: r['name']),
+            );
+          }).toSet();
+          _loading = false;
+        });
+      } else {
+        setState(() {
+          _error = 'Network error';
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  void _moveToRestaurant(Map<String, dynamic> info) {
+    final loc = info['geometry']['location'];
+    _mapController?.animateCamera(CameraUpdate.newLatLng(
+      LatLng(loc['lat'], loc['lng']),
+    ));
   }
 
   @override
@@ -48,9 +118,9 @@ class _MapScreenViewState extends State<MapScreenView> {
           icon: const Icon(Icons.arrow_back, color: Color(0xFF391713)),
           onPressed: () {
             if (Navigator.of(context).canPop()) {
-              Navigator.of(context).pop();
+              Navigator.of(context).maybePop();
             } else {
-              context.go('/wheel');
+              Navigator.of(context).pushReplacementNamed('/lists');
             }
           },
         ),
@@ -65,43 +135,61 @@ class _MapScreenViewState extends State<MapScreenView> {
         ),
         centerTitle: true,
       ),
-      body: Column(
-        children: [
-          SizedBox(
-            height: 220,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: GoogleMap(
-                initialCameraPosition: CameraPosition(
-                  target: LatLng(39.909187, 116.397451),
-                  zoom: 12,
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(child: Text('Load failed: $_error'))
+              : Column(
+                  children: [
+                    SizedBox(
+                      height: 220,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: GoogleMap(
+                          initialCameraPosition: CameraPosition(
+                            target: LatLng(lat, lng),
+                            zoom: 13,
+                          ),
+                          myLocationEnabled: true,
+                          myLocationButtonEnabled: true,
+                          markers: _markers,
+                          onMapCreated: (controller) {
+                            _mapController = controller;
+                          },
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(10),
+                        itemCount: _restaurants.length,
+                        itemBuilder: (context, index) => GestureDetector(
+                          onTap: () => _moveToRestaurant(_restaurants[index]),
+                          child: _GoogleRestaurantCard(info: _restaurants[index]),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                myLocationEnabled: true,
-                myLocationButtonEnabled: true,
-              ),
-            ),
-          ),
-          Expanded(
-            child: BlocBuilder<RestaurantListBloc, RestaurantListState>(
-              builder: (context, state) => ListView.builder(
-                padding: const EdgeInsets.all(10),
-                itemCount: state.restaurants.length,
-                itemBuilder: (context, index) => _RestaurantCard(info: state.restaurants[index]),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
 
-class _RestaurantCard extends StatelessWidget {
-  final RestaurantInfo info;
-  const _RestaurantCard({required this.info});
+class _GoogleRestaurantCard extends StatelessWidget {
+  final Map<String, dynamic> info;
+  const _GoogleRestaurantCard({required this.info});
 
   @override
   Widget build(BuildContext context) {
+    final name = info['name'] ?? '';
+    final rating = info['rating']?.toString() ?? '-';
+    final address = info['vicinity'] ?? '';
+    final photoRef = (info['photos'] != null && info['photos'].isNotEmpty)
+        ? info['photos'][0]['photo_reference']
+        : null;
+    final imageUrl = photoRef != null
+        ? 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=$photoRef&key=${_MapScreenViewState.apiKey}'
+        : null;
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -111,11 +199,20 @@ class _RestaurantCard extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(20),
-              child: const SizedBox(
-                width: 93,
-                height: 93,
-                child: Icon(Icons.image, size: 60, color: Colors.grey),
-              ),
+              child: imageUrl != null
+                  ? Image.network(
+                      imageUrl,
+                      width: 93,
+                      height: 93,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const Icon(Icons.broken_image, size: 60, color: Colors.grey),
+                    )
+                  : const SizedBox(
+                      width: 93,
+                      height: 93,
+                      child: Icon(Icons.image, size: 60, color: Colors.grey),
+                    ),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -123,7 +220,7 @@ class _RestaurantCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    info.name,
+                    name,
                     style: const TextStyle(
                       color: Colors.black,
                       fontSize: 16,
@@ -135,7 +232,7 @@ class _RestaurantCard extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        info.rating.toStringAsFixed(1),
+                        rating,
                         style: const TextStyle(
                           color: Color(0xFF79747E),
                           fontSize: 12,
@@ -144,20 +241,11 @@ class _RestaurantCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 5),
                       const Icon(Icons.star, color: Color(0xFFFFA500), size: 16),
-                      const SizedBox(width: 5),
-                      Text(
-                        '(${info.reviews})',
-                        style: const TextStyle(
-                          color: Color(0xFF79747E),
-                          fontSize: 12,
-                          fontFamily: 'Roboto',
-                        ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    info.description,
+                    address,
                     style: const TextStyle(
                       color: Color(0xFF79747E),
                       fontSize: 12,

@@ -88,6 +88,9 @@ class ProfileScreen extends StatelessWidget {
                       'name': nameController.text,
                     });
 
+                    // updateirebaseAuth displayName
+                    await user.updateDisplayName(nameController.text);
+
                     // Update password if provided
                     if (passwordController.text.isNotEmpty) {
                       await user.updatePassword(passwordController.text);
@@ -119,7 +122,8 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    
+    final authState = context.watch<AuthenticationBloc>().state;
+    final isGuest = authState.isGuest;
     return Scaffold(
       backgroundColor: Colors.white, 
       body: Padding(
@@ -138,118 +142,47 @@ class ProfileScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 32),
-            StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instanceFor(
-                app: FirebaseFirestore.instance.app,
-                databaseId: 'userinfo',
-              )
-                .collection('userinfo')
-                .doc(user?.uid)
-                .snapshots(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData || !snapshot.data!.exists) {
-                  return Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: const SizedBox(
-                          width: 91,
-                          height: 100,
-                          child: Icon(Icons.image, size: 60, color: Colors.grey),
-                        ),
-                      ),
-                      const SizedBox(width: 24),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            user?.displayName ?? 'User Name',
-                            style: const TextStyle(
-                              color: Colors.black,
-                              fontSize: 18,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Opacity(
-                            opacity: 0.5,
-                            child: Text(
-                              user?.email ?? 'user@email.com',
-                              style: const TextStyle(
-                                color: Colors.black,
-                                fontSize: 15,
-                                fontFamily: 'SF Pro Text',
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  );
-                }
-
-                final data = snapshot.data!.data() as Map<String, dynamic>?;
-                final name = data?['name'] as String? ?? user?.displayName ?? 'User Name';
-                final email = data?['email'] as String? ?? user?.email ?? 'user@email.com';
-                
-                return Row(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: const SizedBox(
-                        width: 91,
-                        height: 100,
-                        child: Icon(Icons.image, size: 60, color: Colors.grey),
-                      ),
-                    ),
-                    const SizedBox(width: 24),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          name,
-                          style: const TextStyle(
-                            color: Colors.black,
-                            fontSize: 18,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Opacity(
-                          opacity: 0.5,
-                          child: Text(
-                            email,
-                            style: const TextStyle(
-                              color: Colors.black,
-                              fontSize: 15,
-                              fontFamily: 'SF Pro Text',
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 32),
-            _ProfileItem(
-              title: 'Personal details',
-              trailing: 'change',
-              onTap: () {
-                final name = (FirebaseFirestore.instanceFor(
+            if (!isGuest && user != null) ...[
+              StreamBuilder<DocumentSnapshot>(
+                stream: FirebaseFirestore.instanceFor(
                   app: FirebaseFirestore.instance.app,
                   databaseId: 'userinfo',
-                ).collection('userinfo').doc(user?.uid).get() as Future<DocumentSnapshot>)
-                    .then((doc) => doc.get('name') as String? ?? 'User Name');
-                name.then((currentName) => _showEditDialog(context, currentName));
-              },
-            ),
-            const SizedBox(height: 16),
+                ).collection('userinfo').doc(user.uid).snapshots(),
+                builder: (context, snapshot) {
+                  String name = user.displayName ?? 'User Name';
+                  String email = user.email ?? 'user@email.com';
+                  if (snapshot.hasData && snapshot.data!.exists) {
+                    final data = snapshot.data!.data() as Map<String, dynamic>?;
+                    if (data != null) {
+                      name = data['name'] as String? ?? name;
+                      email = data['email'] as String? ?? email;
+                    }
+                  }
+                  return _ProfileHeader(name: name, email: email);
+                },
+              ),
+            ] else ...[
+              _ProfileHeader(
+                name: 'Anonymous',
+                email: 'anonymous@email.com',
+              ),
+            ],
+            const SizedBox(height: 32),
+            if (!isGuest) ...[
+              _ProfileItem(
+                title: 'Personal details',
+                trailing: 'change',
+                onTap: () {
+                  final nameFuture = (FirebaseFirestore.instanceFor(
+                    app: FirebaseFirestore.instance.app,
+                    databaseId: 'userinfo',
+                  ).collection('userinfo').doc(user?.uid).get() as Future<DocumentSnapshot>)
+                      .then((doc) => doc.get('name') as String? ?? 'User Name');
+                  nameFuture.then((currentName) => _showEditDialog(context, currentName));
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
             _ProfileItem(title: 'Preference'),
             const SizedBox(height: 16),
             _ProfileItem(title: 'History'),
@@ -270,7 +203,7 @@ class ProfileScreen extends StatelessWidget {
                   context.read<AuthenticationBloc>().add(AuthenticationLogoutRequested());
                   GoRouter.of(context).go('/login');
                 },
-                child: const Text('Logout', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                child: Text(isGuest ? 'Log In' : 'Logout', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
               ),
             ),
             const SizedBox(height: 16),
@@ -336,6 +269,61 @@ class _ProfileItem extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ProfileHeader extends StatelessWidget {
+  final String name;
+  final String email;
+  
+  const _ProfileHeader({
+    required this.name,
+    required this.email,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: const SizedBox(
+            width: 91,
+            height: 100,
+            child: Icon(Icons.image, size: 60, color: Colors.grey),
+          ),
+        ),
+        const SizedBox(width: 24),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              name,
+              style: const TextStyle(
+                color: Colors.black,
+                fontSize: 18,
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Opacity(
+              opacity: 0.5,
+              child: Text(
+                email,
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontSize: 15,
+                  fontFamily: 'SF Pro Text',
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

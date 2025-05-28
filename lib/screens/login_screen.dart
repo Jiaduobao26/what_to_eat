@@ -29,7 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
             SnackBar(content: Text(state.error!)),
           );
         }
-        if (state.isLoggedIn) {
+        if (state.isLoggedIn || state.isGuest) {
           context.go('/wheel');
         }
       },
@@ -163,7 +163,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 32),
               TextButton(
                 onPressed: () {
-                   context.go('/wheel');
+                   context.read<AuthenticationBloc>().add(AuthenticationGuestRequested());
                 },
                 child: const Text(
                   'Continue without sign in',
