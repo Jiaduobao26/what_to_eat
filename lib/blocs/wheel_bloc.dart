@@ -119,6 +119,7 @@ class WheelBloc extends Bloc<WheelEvent, WheelState> {
   StreamController<int>? _spinController;
   List<Cuisine> cuisines = [];
   String? _apiKey;
+  String? get apiKey => _apiKey;
 
   WheelBloc() : super(WheelState(
     selectedIndex: 0,
@@ -186,9 +187,9 @@ class WheelBloc extends Bloc<WheelEvent, WheelState> {
     }
   }
   Future<Restaurant> fetchRestaurantByCuisine(String keyword) async {
-    print('Fetching restaurant for cuisine: $keyword');
+    // print('Fetching restaurant for cuisine: $keyword');
     final key = await _getApiKey();
-    print('key: $key');
+    // print('key: $key');
     
     final uri = Uri.https("maps.googleapis.com", "/maps/api/place/nearbysearch/json", {
       // "location": "${lat},${lng}",
@@ -198,20 +199,22 @@ class WheelBloc extends Bloc<WheelEvent, WheelState> {
       "keyword": keyword, // 替换为用户选择的菜系
       "key": key,
       "open_now": "true",
-      "rankby": "prominence",
+      // "rankby": "prominence",
     });
+    // print(uri.toString());
+
 
     final response = await http.get(uri);
-    print('status: ${response.statusCode}');
+    // print('status: ${response.statusCode}');
     if (response.statusCode != 200) {
-      print('Request failed: ${response.body}');
+      // print('Request failed: ${response.body}');
     }
 
     final data = json.decode(response.body);
-    
+
     final results = data['results'] as List<dynamic>;
     final restaurants = parseRestaurants(results, 'japanese'); 
-    print(restaurants);
+    // print(restaurants);
     return restaurants[0];
 
   }
@@ -229,6 +232,8 @@ class WheelBloc extends Bloc<WheelEvent, WheelState> {
         rating: (item['rating'] as num?)?.toDouble() ?? 0.0,
         address: item['vicinity'] ?? 'Unknown address',
         imageUrl: getPhotoUrl(item),
+        lat: (item['geometry']?['location']?['lat'] as num?)?.toDouble() ?? 0.0,
+        lng: (item['geometry']?['location']?['lng'] as num?)?.toDouble() ?? 0.0,
       );
     }).toList();
   }

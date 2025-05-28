@@ -61,6 +61,9 @@ class _WheelOneViewState extends State<WheelOneView> {
     // 打印菜系数据
     // print('Cuisines: ${wheelBloc.cuisines.map((c) => c.name).toList()}');
   
+    final bloc = context.read<WheelBloc>();
+    final apiKey = bloc.apiKey;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: BlocBuilder<WheelBloc, WheelState>(
@@ -326,7 +329,7 @@ class _WheelOneViewState extends State<WheelOneView> {
                                   ),
                                 ],
                               ),
-                                                            ],
+                            ],
                             ),
                           ),
                         ],
@@ -420,15 +423,20 @@ class _WheelOneViewState extends State<WheelOneView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
+                        SizedBox(
                           height: 120,
-                          width: double.infinity,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE0E0E0),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: const Center(
-                            child: Icon(Icons.map, size: 60, color: Color(0xFF79747E)),
+                          width: 400,
+                          child: Center(
+                            child: Image.network(
+                              'https://maps.googleapis.com/maps/api/staticmap'
+                              '?center=${state.selectedRestaurant!.lat},${state.selectedRestaurant!.lng}'
+                              '&zoom=15'
+                              '&size=400x200'
+                              '&maptype=roadmap'
+                              '&markers=color:red%7C${state.selectedRestaurant!.lat},${state.selectedRestaurant!.lng}'
+                              '&key=$apiKey',
+                              fit: BoxFit.cover,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 16),
