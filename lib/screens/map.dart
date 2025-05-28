@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import '../widgets/dialogs/map_popup.dart';
 import '../widgets/dialogs/list_dialog.dart';
+import 'package:go_router/go_router.dart';
 
 class MapScreen extends StatelessWidget {
   const MapScreen({super.key});
@@ -120,7 +121,7 @@ class _MapScreenViewState extends State<MapScreenView> {
             if (Navigator.of(context).canPop()) {
               Navigator.of(context).maybePop();
             } else {
-              Navigator.of(context).pushReplacementNamed('/lists');
+              context.go('/lists');
             }
           },
         ),
