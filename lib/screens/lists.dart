@@ -6,6 +6,9 @@ import '../widgets/dialogs/list_dialog.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:geolocator/geolocator.dart';
+import '../repositories/user_preference_repository.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Lists extends StatelessWidget {
   const Lists({super.key});
@@ -148,6 +151,18 @@ class _GoogleRestaurantCard extends StatelessWidget {
   final Map<String, dynamic> info;
   const _GoogleRestaurantCard({super.key, required this.info});
 
+  Future<bool> _isDislikedRestaurant(String userId, String placeId) async {
+    final repo = UserPreferenceRepository();
+    final pref = await repo.fetchPreference(userId);
+    return pref?.dislikedRestaurants.contains(placeId) ?? false;
+  }
+
+  Future<bool> _isDislikedCuisine(String userId, String cuisine) async {
+    final repo = UserPreferenceRepository();
+    final pref = await repo.fetchPreference(userId);
+    return pref?.dislikedCuisines.contains(cuisine) ?? false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final name = info['name'] ?? '';
@@ -254,17 +269,51 @@ class _GoogleRestaurantCard extends StatelessWidget {
                 ),
                 IconButton(
                   icon: const Icon(Icons.more_vert, color: Color(0xFF391713)),
-                  onPressed: () {
+                  onPressed: () async {
+                    final user = FirebaseAuth.instance.currentUser;
+                    final placeId = info['place_id'] ?? '';
+                    final cuisine = (info['types'] != null && info['types'].isNotEmpty) ? info['types'][0] : '';
+                    bool dislikedRestaurant = false;
+                    bool dislikedCuisine = false;
+                    if (user != null) {
+                      dislikedRestaurant = await _isDislikedRestaurant(user.uid, placeId);
+                      dislikedCuisine = await _isDislikedCuisine(user.uid, cuisine);
+                    }
+                    if (!context.mounted) return;
                     showDialog(
                       context: context,
                       builder: (context) => ListDialog(
-                        onDislikeRestaurant: () {
-                          // TODO: 处理不喜欢餐厅
-                          print('Dislike restaurant');
+                        initialRestaurantSelected: dislikedRestaurant,
+                        initialCuisineSelected: dislikedCuisine,
+                        onDislikeRestaurant: () async {
+                          final user = FirebaseAuth.instance.currentUser;
+                          if (user != null && info['place_id'] != null) {
+                            final repo = UserPreferenceRepository();
+                            await repo.updatePreferenceField(
+                              user.uid,
+                              {
+                                'dislikedRestaurants': FieldValue.arrayUnion([info['place_id']])
+                              },
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Added to disliked restaurants')),
+                            );
+                          }
                         },
-                        onDislikeCuisine: () {
-                          // TODO: 处理不喜欢菜系
-                          print('Dislike cuisine');
+                        onDislikeCuisine: () async {
+                          final user = FirebaseAuth.instance.currentUser;
+                          if (user != null && info['types'] != null && info['types'].isNotEmpty) {
+                            final repo = UserPreferenceRepository();
+                            await repo.updatePreferenceField(
+                              user.uid,
+                              {
+                                'dislikedCuisines': FieldValue.arrayUnion([info['types'][0]])
+                              },
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Added to disliked cuisines')),
+                            );
+                          }
                         },
                         onCancel: () {
                           print('Cancel');
@@ -272,6 +321,7 @@ class _GoogleRestaurantCard extends StatelessWidget {
                         onConfirm: () {
                           print('Confirm');
                         },
+                        description: 'You can mark this restaurant or cuisine as disliked. This will help us improve your recommendations.',
                       ),
                     );
                   },

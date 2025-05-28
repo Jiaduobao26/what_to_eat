@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
+import '../../repositories/user_preference_repository.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ListDialog extends StatefulWidget {
   final VoidCallback? onDislikeRestaurant;
   final VoidCallback? onDislikeCuisine;
   final VoidCallback? onCancel;
   final VoidCallback? onConfirm;
+  final bool initialRestaurantSelected;
+  final bool initialCuisineSelected;
+  final String description;
 
   const ListDialog({
     super.key,
@@ -12,6 +18,9 @@ class ListDialog extends StatefulWidget {
     this.onDislikeCuisine,
     this.onCancel,
     this.onConfirm,
+    this.initialRestaurantSelected = false,
+    this.initialCuisineSelected = false,
+    this.description = '',
   });
 
   @override
@@ -19,8 +28,15 @@ class ListDialog extends StatefulWidget {
 }
 
 class _ListDialogState extends State<ListDialog> {
-  bool _isRestaurantSelected = false;
-  bool _isCuisineSelected = false;
+  late bool _isRestaurantSelected;
+  late bool _isCuisineSelected;
+
+  @override
+  void initState() {
+    super.initState();
+    _isRestaurantSelected = widget.initialRestaurantSelected;
+    _isCuisineSelected = widget.initialCuisineSelected;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -67,9 +83,11 @@ class _ListDialogState extends State<ListDialog> {
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
-            'A dialog is a type of modal window that appears in front of app content to provide critical information, or prompt for a decision to be made.',
-            style: TextStyle(
+          Text(
+            widget.description.isNotEmpty
+                ? widget.description
+                : 'A dialog is a type of modal window that appears in front of app content to provide critical information, or prompt for a decision to be made.',
+            style: const TextStyle(
               color: Color(0xFF49454F),
               fontSize: 14,
               fontFamily: 'Roboto',
