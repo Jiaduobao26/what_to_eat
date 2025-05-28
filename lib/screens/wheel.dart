@@ -6,7 +6,6 @@ import '../widgets/dialogs/result_dialog.dart';
 import '../widgets/dialogs/map_popup.dart';
 import 'dart:math';
 import 'dart:async';
-import '../models/restaurant.dart';
 
 class WheelOne extends StatelessWidget {
   const WheelOne({super.key});
@@ -31,16 +30,11 @@ class _WheelOneViewState extends State<WheelOneView> {
   int? _selectedIndex;
   late StreamController<int> _streamController;
   bool _isSpinning = false;
-  List<Restaurant> _restaurants = [];
-  Restaurant? _selectedRestaurant;
 
   @override
   void initState() {
     super.initState();
     _streamController = StreamController<int>();
-    // 初始化餐厅列表
-    // 不用初始化餐厅列表，wheel 转完之后，请求 cuisine 对应餐厅
-    _restaurants = [];
   }
 
   @override
@@ -53,7 +47,6 @@ class _WheelOneViewState extends State<WheelOneView> {
     if (_isSpinning && _selectedIndex != null) {
       setState(() {
         _isSpinning = false;
-        _selectedRestaurant = _restaurants[_selectedIndex!];
         // 获取 Bloc 最新 options
         final options = context.read<WheelBloc>().state.options;
         final selectedOption = options[_selectedIndex!];
@@ -64,24 +57,14 @@ class _WheelOneViewState extends State<WheelOneView> {
 
   @override
   Widget build(BuildContext context) {
-    final wheelBloc = context.read<WheelBloc>();
+    // final wheelBloc = context.read<WheelBloc>();
     // 打印菜系数据
-    print('Cuisines: ${wheelBloc.cuisines.map((c) => c.name).toList()}');
+    // print('Cuisines: ${wheelBloc.cuisines.map((c) => c.name).toList()}');
   
     return Scaffold(
       backgroundColor: Colors.white,
-
       body: BlocBuilder<WheelBloc, WheelState>(
         builder: (context, state) {
-          // 同步选项到转盘
-          _restaurants = state.options.map((option) => Restaurant(
-            name: option.name,
-            cuisine: 'Cuisine',  // 默认值
-            rating: 4.5,        // 默认值
-            address: 'Address',  // 默认值
-            imageUrl: 'https://picsum.photos/200',
-          )).toList();
-
           return SingleChildScrollView(
             child: Column(
               children: [
@@ -93,17 +76,38 @@ class _WheelOneViewState extends State<WheelOneView> {
                           selected: _streamController.stream,
                           animateFirst: false,
                           onAnimationEnd: _onWheelStop,
+                          indicators: <FortuneIndicator>[
+                            FortuneIndicator(
+                              alignment: Alignment.topCenter,
+                              child: Icon(Icons.arrow_drop_down, size: 48, color: Color(0xFFE95322)), // 你可以换成任意 Widget
+                            ),
+                          ],
                           items: [
                             for (var option in state.options)
                               FortuneItem(
-                                child: Text(
-                                  option.name,
-                                  style: const TextStyle(
-                                    color: Color(0xFF391713),
-                                    fontSize: 16,
-                                    fontFamily: 'Roboto',
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    option.keyword.isEmpty
+                                      ? const Icon(Icons.image, size: 40, color: Colors.grey)
+                                      : Image.asset(
+                                          'assets/cuisines_images/${option.keyword}.png',
+                                          width: 40,
+                                          height: 40,
+                                          errorBuilder: (context, error, stackTrace) =>
+                                              const Icon(Icons.food_bank, size: 40, color: Colors.grey),
+                                        ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      option.name,
+                                      style: const TextStyle(
+                                        color: Color(0xFF391713),
+                                        fontSize: 14,
+                                        fontFamily: 'Roboto',
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                                 style: FortuneItemStyle(
                                   color: const Color(0xFFFFF3E0),
