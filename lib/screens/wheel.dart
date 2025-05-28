@@ -436,10 +436,17 @@ class _WheelOneViewState extends State<WheelOneView> {
                           children: [
                             ClipRRect(
                               borderRadius: BorderRadius.circular(12),
-                              child: const SizedBox(
+                              child: Image.network(
+                                state.selectedRestaurant!.imageUrl,
                                 width: 60,
                                 height: 60,
-                                child: Icon(Icons.image, size: 40, color: Colors.grey),
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const SizedBox(
+                                      width: 60,
+                                      height: 60,
+                                      child: Icon(Icons.image, size: 40, color: Colors.grey),
+                                    ),
                               ),
                             ),
                             const SizedBox(width: 16),

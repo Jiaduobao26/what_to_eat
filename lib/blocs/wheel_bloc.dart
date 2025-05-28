@@ -8,6 +8,11 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../models/restaurant.dart';
+
+import '../services/local_properties_service.dart';
+
+
+
 class Cuisine {
   final String name;
   final String keyword;
@@ -113,6 +118,7 @@ class WheelBloc extends Bloc<WheelEvent, WheelState> {
   final _random = Random();
   StreamController<int>? _spinController;
   List<Cuisine> cuisines = [];
+  String? _apiKey;
 
   WheelBloc() : super(WheelState(
     selectedIndex: 0,
@@ -180,23 +186,62 @@ class WheelBloc extends Bloc<WheelEvent, WheelState> {
     }
   }
   Future<Restaurant> fetchRestaurantByCuisine(String keyword) async {
-    // 实际请替换为你的API
-    await Future.delayed(const Duration(milliseconds: 500));
-    return Restaurant(
-      name: 'Demo Restaurant',
-      cuisine: keyword,
-      rating: 4.5,
-      address: '123 Main St',
-      imageUrl: 'https://picsum.photos/200',
-    );
-    // 示例真实请求
-    // final response = await http.get(Uri.parse('https://your.api/restaurant?cuisine=$keyword'));
-    // if (response.statusCode == 200) {
-    //   final data = json.decode(response.body);
-    //   return Restaurant.fromJson(data);
-    // } else {
-    //   throw Exception('Failed to load restaurant');
-    // }
+    print('Fetching restaurant for cuisine: $keyword');
+    final key = await _getApiKey();
+    print('key: $key');
+    
+    final uri = Uri.https("maps.googleapis.com", "/maps/api/place/nearbysearch/json", {
+      // "location": "${lat},${lng}",
+      "location": "37.7749,-122.4194", // 示例坐标，实际请替换为用户当前位置
+      "radius": "1500",
+      "type": "restaurant",
+      "keyword": keyword, // 替换为用户选择的菜系
+      "key": key,
+      "open_now": "true",
+      "rankby": "prominence",
+    });
+
+    final response = await http.get(uri);
+    print('status: ${response.statusCode}');
+    if (response.statusCode != 200) {
+      print('Request failed: ${response.body}');
+    }
+
+    final data = json.decode(response.body);
+    
+    final results = data['results'] as List<dynamic>;
+    final restaurants = parseRestaurants(results, 'japanese'); 
+    print(restaurants);
+    return restaurants[0];
+
+  }
+  Future<String> _getApiKey() async {
+    if (_apiKey != null) return _apiKey!;
+    _apiKey = await LocalPropertiesService.getGoogleMapsApiKey();
+    return _apiKey!;
+  }
+
+  List<Restaurant> parseRestaurants(List<dynamic> jsonList, String cuisineKeyword) {
+    return jsonList.map((item) {
+      return Restaurant(
+        name: item['name'] ?? 'Unknown',
+        cuisine: cuisineKeyword,
+        rating: (item['rating'] as num?)?.toDouble() ?? 0.0,
+        address: item['vicinity'] ?? 'Unknown address',
+        imageUrl: getPhotoUrl(item),
+      );
+    }).toList();
+  }
+
+  String getPhotoUrl(Map<String, dynamic> json) {
+    final photos = json['photos'] as List<dynamic>?;
+    if (photos != null && photos.isNotEmpty) {
+      final ref = photos.first['photo_reference'];
+      return 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=$ref&key=$_apiKey';
+    } else {
+      // 使用默认图片或空字符串
+      return 'https://via.placeholder.com/400x300.png?text=No+Image';
+    }
   }
 
   @override

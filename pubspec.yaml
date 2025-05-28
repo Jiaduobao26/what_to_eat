@@ -81,6 +81,7 @@ flutter:
   assets:
   - assets/cuisines.json
   - assets/cuisines_images/
+  - local.properties
     
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
