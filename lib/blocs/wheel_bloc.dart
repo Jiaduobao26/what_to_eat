@@ -1,17 +1,14 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
 import 'dart:async';
-
 import 'package:flutter/services.dart' show rootBundle;
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../models/restaurant.dart';
-
 import '../services/local_properties_service.dart';
-
-
 
 class Cuisine {
   final String name;
@@ -135,18 +132,21 @@ class WheelBloc extends Bloc<WheelEvent, WheelState> {
     on<CloseModifyEvent>((event, emit) {
       emit(state.copyWith(showModify: false));
     });
-    on<UpdateOptionEvent>((event, emit) {
+    on<UpdateOptionEvent>((event, emit) async {
       final newOptions = List<Option>.from(state.options);
       newOptions[event.index] = Option(name: event.name, keyword: event.keyword);
       emit(state.copyWith(options: newOptions));
+      await saveOptionsToLocal(newOptions);
     });
-    on<RemoveOptionEvent>((event, emit) {
+    on<RemoveOptionEvent>((event, emit) async {
       final newOptions = List<Option>.from(state.options)..removeAt(event.index);
       emit(state.copyWith(options: newOptions));
+      await saveOptionsToLocal(newOptions);
     });
-    on<AddOptionEvent>((event, emit) {
+    on<AddOptionEvent>((event, emit) async {
       final newOptions = List<Option>.from(state.options)..add(Option(name: '', keyword: ''));
       emit(state.copyWith(options: newOptions));
+      await saveOptionsToLocal(newOptions);
     });
     on<SpinWheelEvent>((event, emit) {
       final randomIndex = _random.nextInt(state.options.length);
@@ -162,11 +162,16 @@ class WheelBloc extends Bloc<WheelEvent, WheelState> {
     cuisines = (data['cuisines'] as List)
         .map((e) => Cuisine.fromJson(e))
         .toList();
-    
-    print('Loaded cuisines: ${cuisines.map((c) => c.name).toList()}');
-    if (cuisines.length >= 3) {
+
+    // load initial options from local storage
+    final localOptions = await loadOptionsFromLocal();
+    if (localOptions.isNotEmpty) {
+      emit(state.copyWith(options: localOptions));
+    } else if (cuisines.length >= 3) {
       final firstThree = cuisines.take(3).map((c) => Option(name: c.name, keyword: c.keyword)).toList();
       emit(state.copyWith(options: firstThree));
+      // save initial options to local storage
+      await saveOptionsToLocal(firstThree);
     }
   }
   Future<void> _onFetchRestaurant(
@@ -187,34 +192,25 @@ class WheelBloc extends Bloc<WheelEvent, WheelState> {
     }
   }
   Future<Restaurant> fetchRestaurantByCuisine(String keyword) async {
-    // print('Fetching restaurant for cuisine: $keyword');
     final key = await _getApiKey();
-    // print('key: $key');
     
     final uri = Uri.https("maps.googleapis.com", "/maps/api/place/nearbysearch/json", {
-      // "location": "${lat},${lng}",
-      "location": "37.7749,-122.4194", // 示例坐标，实际请替换为用户当前位置
+      "location": "37.7749,-122.4194", // example coordinates (San Francisco)
       "radius": "1500",
       "type": "restaurant",
-      "keyword": keyword, // 替换为用户选择的菜系
+      "keyword": keyword,
       "key": key,
       "open_now": "true",
-      // "rankby": "prominence",
     });
-    // print(uri.toString());
-
 
     final response = await http.get(uri);
-    // print('status: ${response.statusCode}');
     if (response.statusCode != 200) {
-      // print('Request failed: ${response.body}');
+      print('Request failed: ${response.body}');
     }
 
     final data = json.decode(response.body);
-
     final results = data['results'] as List<dynamic>;
     final restaurants = parseRestaurants(results, keyword); 
-    // print(restaurants);
     return restaurants[0];
 
   }
@@ -244,7 +240,7 @@ class WheelBloc extends Bloc<WheelEvent, WheelState> {
       final ref = photos.first['photo_reference'];
       return 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=$ref&key=$_apiKey';
     } else {
-      // 使用默认图片或空字符串
+      // use a placeholder image if no photo is available
       return 'https://via.placeholder.com/400x300.png?text=No+Image';
     }
   }
@@ -253,5 +249,20 @@ class WheelBloc extends Bloc<WheelEvent, WheelState> {
   Future<void> close() {
     _spinController?.close();
     return super.close();
+  }
+
+  // Save options to local storage
+  Future<void> saveOptionsToLocal(List<Option> options) async {
+    final prefs = await SharedPreferences.getInstance();
+    final optionsJson = jsonEncode(options.map((e) => {'name': e.name, 'keyword': e.keyword}).toList());
+    await prefs.setString('wheel_options', optionsJson);
+  }
+  // Load options from local storage
+  Future<List<Option>> loadOptionsFromLocal() async {
+    final prefs = await SharedPreferences.getInstance();
+    final optionsJson = prefs.getString('wheel_options');
+    if (optionsJson == null) return [];
+    final List<dynamic> decoded = jsonDecode(optionsJson);
+    return decoded.map((e) => Option(name: e['name'], keyword: e['keyword'])).toList();
   }
 }
