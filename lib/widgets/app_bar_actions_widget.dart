@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../screens/map.dart';
 
 class AppBarActionsWidget extends StatelessWidget {
   final String location;
-  const AppBarActionsWidget({super.key, required this.location});
+  final VoidCallback? onEditWheel;
+  const AppBarActionsWidget({super.key, required this.location, this.onEditWheel});
 
   @override
   Widget build(BuildContext context) {
@@ -18,13 +20,13 @@ class AppBarActionsWidget extends StatelessWidget {
     if (location.startsWith('/lists')) {
       icon = Icons.map;
       onPressed = () {
-        GoRouter.of(context).go('/map');
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (context) => const MapScreen()),
+        );
       };
     } else if (location.startsWith('/wheel')) {
       icon = Icons.add;
-      onPressed = () {
-        GoRouter.of(context).go('/add');
-      };
+      onPressed = onEditWheel;
     } else {
       return const SizedBox.shrink();
     }

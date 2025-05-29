@@ -9,6 +9,8 @@ import 'package:geolocator/geolocator.dart';
 import '../repositories/user_preference_repository.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/nearby_restaurant_provider.dart';
+import 'package:provider/provider.dart';
 
 class Lists extends StatelessWidget {
   const Lists({super.key});
@@ -29,13 +31,14 @@ class ListsView extends StatefulWidget {
   State<ListsView> createState() => _ListsViewState();
 }
 
-class _ListsViewState extends State<ListsView> {
+class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixin {
   List<Map<String, dynamic>> _restaurants = [];
   bool _loading = true;
   String? _error;
   String? _nextPageToken;
   final ScrollController _scrollController = ScrollController();
   bool _isLoadingMore = false;
+  bool _hasLoaded = false;
 
   // 你可以将API_KEY放到安全的地方
   static const String apiKey = 'AIzaSyBUUuCGzKK9z-yY2gHz1kvvTzhIufEkQZc';
@@ -44,9 +47,15 @@ class _ListsViewState extends State<ListsView> {
   double lng = -121.9842;
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   void initState() {
     super.initState();
-    getCurrentLocation();
+    if (!_hasLoaded) {
+      getCurrentLocation();
+      _hasLoaded = true;
+    }
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 100) {
         if (_nextPageToken != null && !_isLoadingMore) {
@@ -58,26 +67,37 @@ class _ListsViewState extends State<ListsView> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       backgroundColor: Colors.white,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
-              itemCount: _restaurants.length + (_nextPageToken != null ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index < _restaurants.length) {
-                  return _GoogleRestaurantCard(info: _restaurants[index]);
-                } else {
-                  // 加载更多loading
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                }
-              },
-            ),
+          : _error != null
+              ? Center(child: Text('加载失败:\n$_error'))
+              : RefreshIndicator(
+                  onRefresh: () async {
+                    _hasLoaded = false;
+                    _restaurants.clear();
+                    _nextPageToken = null;
+                    await getCurrentLocation();
+                  },
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
+                    itemCount: _restaurants.length + (_nextPageToken != null ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index < _restaurants.length) {
+                        return _GoogleRestaurantCard(info: _restaurants[index]);
+                      } else {
+                        // 加载更多loading
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      }
+                    },
+                  ),
+                ),
     );
   }
 
@@ -108,6 +128,9 @@ class _ListsViewState extends State<ListsView> {
           _loading = false;
           _isLoadingMore = false;
         });
+        // 更新 Provider
+        final provider = Provider.of<NearbyRestaurantProvider>(context, listen: false);
+        provider.updateRestaurants(_restaurants);
       } else {
         setState(() {
           _error = '网络错误';
@@ -116,6 +139,8 @@ class _ListsViewState extends State<ListsView> {
         });
       }
     } catch (e) {
+      print('fetchNearbyRestaurants error: '
+          + e.toString());
       setState(() {
         _error = e.toString();
         _loading = false;
@@ -126,21 +151,32 @@ class _ListsViewState extends State<ListsView> {
 
   Future<void> getCurrentLocation() async {
     try {
+      print('getCurrentLocation: start');
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      print('getCurrentLocation: serviceEnabled = '
+          + serviceEnabled.toString());
       if (!serviceEnabled) return;
       LocationPermission permission = await Geolocator.checkPermission();
+      print('getCurrentLocation: permission = '
+          + permission.toString());
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
+        print('getCurrentLocation: requestPermission = '
+            + permission.toString());
         if (permission == LocationPermission.denied) return;
       }
       if (permission == LocationPermission.deniedForever) return;
       Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      print('getCurrentLocation: position = '
+          + position.toString());
       setState(() {
         lat = position.latitude;
         lng = position.longitude;
       });
       fetchNearbyRestaurants();
     } catch (e) {
+      print('getCurrentLocation error: '
+          + e.toString());
       // 定位失败，继续用默认值
       fetchNearbyRestaurants();
     }

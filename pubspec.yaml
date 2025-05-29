@@ -46,6 +46,7 @@ dependencies:
   cloud_firestore: ^5.6.8
   http: ^1.2.1
   geolocator: ^11.0.0
+  fluttertoast: ^8.2.4
 
 dev_dependencies:
   flutter_test:
@@ -81,6 +82,7 @@ flutter:
   assets:
   - assets/cuisines.json
   - assets/cuisines_images/
+  - local.properties
     
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

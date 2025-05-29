@@ -6,6 +6,9 @@ class Restaurant extends Equatable {
   final double rating;
   final String address;
   final String imageUrl;
+  final double lat;
+  final double lng;
+
 
   const Restaurant({
     required this.name,
@@ -13,6 +16,8 @@ class Restaurant extends Equatable {
     required this.rating,
     required this.address,
     required this.imageUrl,
+    required this.lat,
+    required this.lng,
   });
 
   factory Restaurant.fromJson(Map<String, dynamic> json) {
@@ -22,6 +27,8 @@ class Restaurant extends Equatable {
       rating: (json['rating'] as num).toDouble(),
       address: json['address'],
       imageUrl: json['imageUrl'],
+      lat: (json['lat'] as num).toDouble(),
+      lng: (json['lng'] as num).toDouble(),
     );
   }
 
