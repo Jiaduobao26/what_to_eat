@@ -9,6 +9,8 @@ import 'package:geolocator/geolocator.dart';
 import '../repositories/user_preference_repository.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/nearby_restaurant_provider.dart';
+import 'package:provider/provider.dart';
 
 class Lists extends StatelessWidget {
   const Lists({super.key});
@@ -126,6 +128,9 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
           _loading = false;
           _isLoadingMore = false;
         });
+        // 更新 Provider
+        final provider = Provider.of<NearbyRestaurantProvider>(context, listen: false);
+        provider.updateRestaurants(_restaurants);
       } else {
         setState(() {
           _error = '网络错误';

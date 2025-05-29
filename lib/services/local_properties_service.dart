@@ -4,7 +4,7 @@ import 'package:flutter/services.dart' show rootBundle;
 class LocalPropertiesService {
   static Future<String?> getGoogleMapsApiKey() async {
     try {
-      final content = await rootBundle.loadString('local.properties');
+      final content = await rootBundle.loadString('assets/local.properties');
       final lines = content.split('\n');
       for (var line in lines) {
         if (line.startsWith('API_KEY=')) {

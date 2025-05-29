@@ -8,6 +8,8 @@ import '../widgets/dialogs/edit_wheel_option_dialog.dart';
 import '../widgets/restaurant_detail_card.dart';
 import 'dart:math';
 import 'dart:async';
+import 'package:provider/provider.dart';
+import '../services/nearby_restaurant_provider.dart';
 
 class WheelOne extends StatelessWidget {
   const WheelOne({super.key});
@@ -52,8 +54,9 @@ class _WheelOneViewState extends State<WheelOneView> {
         // get the options from the context
         final options = context.read<WheelBloc>().state.options;
         final selectedOption = options[_selectedIndex!];
+        final nearbyList = Provider.of<NearbyRestaurantProvider>(context, listen: false).restaurants;
         context.read<WheelBloc>().add(
-          FetchRestaurantEvent(selectedOption.keyword),
+          FetchRestaurantEvent(selectedOption.keyword, nearbyList: nearbyList),
         );
       });
     }

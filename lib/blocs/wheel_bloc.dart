@@ -6,6 +6,8 @@ import 'dart:async';
 import 'package:flutter/services.dart' show rootBundle;
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
+import '../services/nearby_restaurant_provider.dart';
 
 import '../models/restaurant.dart';
 import '../services/local_properties_service.dart';
@@ -105,10 +107,11 @@ class AddOptionEvent extends WheelEvent {}
 class SpinWheelEvent extends WheelEvent {}
 class FetchRestaurantEvent extends WheelEvent {
   final String keyword;
-  const FetchRestaurantEvent(this.keyword);
+  final List<Map<String, dynamic>>? nearbyList;
+  const FetchRestaurantEvent(this.keyword, {this.nearbyList});
 
   @override
-  List<Object?> get props => [keyword];
+  List<Object?> get props => [keyword, nearbyList];
 }
 
 class WheelBloc extends Bloc<WheelEvent, WheelState> {
@@ -178,13 +181,40 @@ class WheelBloc extends Bloc<WheelEvent, WheelState> {
       FetchRestaurantEvent event, Emitter<WheelState> emit) async {
     emit(state.copyWith(loadingRestaurant: true));
     try {
+      final localList = event.nearbyList ?? [];
+      print('Nearby list count: \\${localList.length}');
+      final filtered = localList.where((r) => (r['types'] as List?)?.contains(event.keyword) ?? false).toList();
+      print('Filtered count for \\${event.keyword}: \\${filtered.length}');
+      if (filtered.isNotEmpty) {
+        final random = Random().nextInt(filtered.length);
+        final selected = filtered[random];
+        print('Selected from local: \\${selected['name']}');
+        final restaurant = Restaurant(
+          name: selected['name'] ?? 'Unknown',
+          cuisine: event.keyword,
+          rating: (selected['rating'] as num?)?.toDouble() ?? 0.0,
+          address: selected['vicinity'] ?? 'Unknown address',
+          imageUrl: getPhotoUrl(selected),
+          lat: (selected['geometry']?['location']?['lat'] as num?)?.toDouble() ?? 0.0,
+          lng: (selected['geometry']?['location']?['lng'] as num?)?.toDouble() ?? 0.0,
+        );
+        emit(state.copyWith(
+          selectedRestaurant: restaurant,
+          loadingRestaurant: false,
+          showResult: true,
+        ));
+        return;
+      }
+      print('No local match, using Google API...');
       final restaurant = await fetchRestaurantByCuisine(event.keyword);
+      print('Google API result: \\${restaurant.name}');
       emit(state.copyWith(
         selectedRestaurant: restaurant,
         loadingRestaurant: false,
         showResult: true,
       ));
     } catch (e) {
+      print('Fetch restaurant error: \\${e.toString()}');
       emit(state.copyWith(
         selectedRestaurant: null,
         loadingRestaurant: false,
@@ -193,7 +223,7 @@ class WheelBloc extends Bloc<WheelEvent, WheelState> {
   }
   Future<Restaurant> fetchRestaurantByCuisine(String keyword) async {
     final key = await _getApiKey();
-    
+    print('Google API search for \\${keyword}');
     final uri = Uri.https("maps.googleapis.com", "/maps/api/place/nearbysearch/json", {
       "location": "37.7749,-122.4194", // example coordinates (San Francisco)
       "radius": "1500",
@@ -205,14 +235,15 @@ class WheelBloc extends Bloc<WheelEvent, WheelState> {
 
     final response = await http.get(uri);
     if (response.statusCode != 200) {
-      print('Request failed: ${response.body}');
+      print('Request failed: \\${response.body}');
     }
 
     final data = json.decode(response.body);
     final results = data['results'] as List<dynamic>;
+    print('Google API results count: \\${results.length}');
+    if (results.isEmpty) throw Exception('No results from Google API');
     final restaurants = parseRestaurants(results, keyword); 
     return restaurants[0];
-
   }
   Future<String> _getApiKey() async {
     if (_apiKey != null) return _apiKey!;

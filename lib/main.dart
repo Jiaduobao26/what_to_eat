@@ -3,6 +3,8 @@ import 'router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'auth/authentication_bloc.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'services/nearby_restaurant_provider.dart';
+import 'package:provider/provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,11 +17,14 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider(create: (_) => AuthenticationBloc()),
-      ],
-      child: const MyRouterApp(),
+    return ChangeNotifierProvider(
+      create: (_) => NearbyRestaurantProvider(),
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider(create: (_) => AuthenticationBloc()),
+        ],
+        child: const MyRouterApp(),
+      ),
     );
   }
 }
