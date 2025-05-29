@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import '../../blocs/wheel_bloc.dart';
 
 class EditWheelOptionsDialog extends StatelessWidget {
@@ -9,6 +10,7 @@ class EditWheelOptionsDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = context.watch<WheelBloc>().state;
     return AlertDialog(
+      backgroundColor: const Color(0xFFF5F5F5),
       contentPadding: EdgeInsets.zero,
       content: SingleChildScrollView(
         child: Container(
@@ -85,9 +87,20 @@ class EditWheelOptionsDialog extends StatelessWidget {
                     const SizedBox(width: 8),
                     IconButton(
                       icon: const Icon(Icons.delete_outline, color: Color(0xFFE95322)),
-                      onPressed: state.options.length > 2 
-                        ? () => context.read<WheelBloc>().add(RemoveOptionEvent(i))
-                        : null,
+                      onPressed: () {
+                        if (state.options.length > 2) {
+                          context.read<WheelBloc>().add(RemoveOptionEvent(i));
+                        } else {
+                          Fluttertoast.showToast(
+                            msg: "At least 2 options are required.",
+                            toastLength: Toast.LENGTH_SHORT,
+                            gravity: ToastGravity.CENTER,
+                            backgroundColor: Colors.black87,
+                            textColor: Colors.white,
+                            fontSize: 16.0,
+                          );
+                        }
+                      },
                     ),
                   ],
                 ),
