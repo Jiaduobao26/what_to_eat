@@ -62,22 +62,24 @@ class _ListsViewState extends State<ListsView> {
       backgroundColor: Colors.white,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
-              itemCount: _restaurants.length + (_nextPageToken != null ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index < _restaurants.length) {
-                  return _GoogleRestaurantCard(info: _restaurants[index]);
-                } else {
-                  // 加载更多loading
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                }
-              },
-            ),
+          : _error != null
+              ? Center(child: Text('加载失败:\n$_error'))
+              : ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
+                  itemCount: _restaurants.length + (_nextPageToken != null ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index < _restaurants.length) {
+                      return _GoogleRestaurantCard(info: _restaurants[index]);
+                    } else {
+                      // 加载更多loading
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+                  },
+                ),
     );
   }
 
@@ -116,6 +118,8 @@ class _ListsViewState extends State<ListsView> {
         });
       }
     } catch (e) {
+      print('fetchNearbyRestaurants error: '
+          + e.toString());
       setState(() {
         _error = e.toString();
         _loading = false;
@@ -126,21 +130,32 @@ class _ListsViewState extends State<ListsView> {
 
   Future<void> getCurrentLocation() async {
     try {
+      print('getCurrentLocation: start');
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      print('getCurrentLocation: serviceEnabled = '
+          + serviceEnabled.toString());
       if (!serviceEnabled) return;
       LocationPermission permission = await Geolocator.checkPermission();
+      print('getCurrentLocation: permission = '
+          + permission.toString());
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
+        print('getCurrentLocation: requestPermission = '
+            + permission.toString());
         if (permission == LocationPermission.denied) return;
       }
       if (permission == LocationPermission.deniedForever) return;
       Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      print('getCurrentLocation: position = '
+          + position.toString());
       setState(() {
         lat = position.latitude;
         lng = position.longitude;
       });
       fetchNearbyRestaurants();
     } catch (e) {
+      print('getCurrentLocation error: '
+          + e.toString());
       // 定位失败，继续用默认值
       fetchNearbyRestaurants();
     }
