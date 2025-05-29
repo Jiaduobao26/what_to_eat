@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../auth/authentication_bloc.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../screens/main_scaffold.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -81,7 +82,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         }
         if (state.isLoggedIn) {
           Future.delayed(const Duration(milliseconds: 100), () {
-            context.go('/wheel');
+            MainScaffold.globalKey.currentState?.switchTab(1);
           });
         }
       },

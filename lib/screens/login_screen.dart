@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../auth/authentication_bloc.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../screens/main_scaffold.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -30,7 +31,7 @@ class _LoginScreenState extends State<LoginScreen> {
           );
         }
         if (state.isLoggedIn || state.isGuest) {
-          context.go('/wheel');
+          MainScaffold.globalKey.currentState?.switchTab(1);
         }
       },
       child:Scaffold(
