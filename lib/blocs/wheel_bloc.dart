@@ -213,7 +213,7 @@ class WheelBloc extends Bloc<WheelEvent, WheelState> {
     final data = json.decode(response.body);
 
     final results = data['results'] as List<dynamic>;
-    final restaurants = parseRestaurants(results, 'japanese'); 
+    final restaurants = parseRestaurants(results, keyword); 
     // print(restaurants);
     return restaurants[0];
 
