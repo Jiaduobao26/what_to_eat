@@ -92,7 +92,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Color(0xFF391713)),
-            onPressed: () => context.go('/login'),
+            onPressed: () => context.go('/preference'),
           ),
         ),
         body: Center(
