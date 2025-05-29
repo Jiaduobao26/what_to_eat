@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../blocs/wheel_bloc.dart';
 import '../models/restaurant.dart';
 import '../widgets/dialogs/map_popup.dart';
+import '../widgets/buttons/custom_button_widget.dart';
 
 class RestaurantDetailCard extends StatelessWidget {
   const RestaurantDetailCard({super.key});
@@ -121,18 +122,8 @@ class RestaurantDetailCard extends StatelessWidget {
           const SizedBox(height: 24),
           Align(
             alignment: Alignment.center,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFFA500),
-                foregroundColor: const Color(0xFF391713),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(100),
-                ),
-              ),
+            child: 
+            CustomButtonWidget(
               onPressed: () {
                 showModalBottomSheet(
                   context: context,
@@ -150,16 +141,9 @@ class RestaurantDetailCard extends StatelessWidget {
                       ),
                 );
               },
-              child: const Text(
-                "Let's Go!",
-                style: TextStyle(
-                  fontSize: 17,
-                  fontFamily: 'League Spartan',
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.09,
-                ),
-              ),
-            ),
+              text: "Let's Go!", 
+              color: 'orange',
+            )
           ),
         ],
       ),
