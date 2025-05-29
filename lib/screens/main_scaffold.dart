@@ -3,6 +3,9 @@ import '../screens/lists.dart';
 import '../screens/wheel.dart';
 import '../screens/profile.dart';
 import '../widgets/app_bar_actions_widget.dart';
+import '../widgets/dialogs/edit_wheel_option_dialog.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../blocs/wheel_bloc.dart';
 
 class MainScaffold extends StatefulWidget {
   static final GlobalKey<_MainScaffoldState> globalKey = GlobalKey<_MainScaffoldState>();
@@ -42,6 +45,15 @@ class _MainScaffoldState extends State<MainScaffold> {
 
   @override
   Widget build(BuildContext context) {
+    void showEditWheelDialog() {
+      showDialog(
+        context: context,
+        builder: (dialogContext) => BlocProvider(
+          create: (_) => WheelBloc(),
+          child: const EditWheelOptionsDialog(),
+        ),
+      );
+    }
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -57,7 +69,10 @@ class _MainScaffoldState extends State<MainScaffold> {
           ),
         ),
         actions: [
-          AppBarActionsWidget(location: ''),
+          AppBarActionsWidget(
+            location: _selectedIndex == 0 ? '/lists' : _selectedIndex == 1 ? '/wheel' : '/profile',
+            onEditWheel: _selectedIndex == 1 ? showEditWheelDialog : null,
+          ),
         ],
       ),
       body: IndexedStack(
