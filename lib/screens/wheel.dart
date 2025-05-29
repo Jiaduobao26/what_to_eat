@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_fortune_wheel/flutter_fortune_wheel.dart';
 import '../blocs/wheel_bloc.dart';
 import '../widgets/dialogs/result_dialog.dart';
+import '../widgets/buttons/custom_button_widget.dart';
 import '../widgets/dialogs/edit_wheel_option_dialog.dart';
 import '../widgets/restaurant_detail_card.dart';
 import 'dart:math';
@@ -60,9 +61,6 @@ class _WheelOneViewState extends State<WheelOneView> {
 
   @override
   Widget build(BuildContext context) {
-    final bloc = context.read<WheelBloc>();
-    final apiKey = bloc.apiKey;
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: BlocBuilder<WheelBloc, WheelState>(
@@ -144,67 +142,29 @@ class _WheelOneViewState extends State<WheelOneView> {
                             ),
                           ),
                 ),
-               
                 BlocBuilder<WheelBloc, WheelState>(
                   builder: (context, state) {
-                    final bool hasEnoughOptions = state.options.length >= 2;
                     return Column(
                       children: [
-                        if (!hasEnoughOptions)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
-                            child: Text(
-                              'Please add at least 2 options to spin the wheel',
-                              style: TextStyle(
-                                color: Colors.red[700],
-                                fontSize: 14,
-                                fontFamily: 'Roboto',
-                              ),
-                            ),
-                          ),
                         if (!state.showResult) ...[
                           const SizedBox(height: 40),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  hasEnoughOptions
-                                      ? const Color(0xFFFFA500)
-                                      : Colors.grey,
-                              foregroundColor: const Color(0xFF391713),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 32,
-                                vertical: 12,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(100),
-                              ),
-                            ),
-                            onPressed:
-                                hasEnoughOptions
-                                    ? () async {
-                                      final randomIndex = Random().nextInt(
-                                        context
-                                            .read<WheelBloc>()
-                                            .state
-                                            .options
-                                            .length,
-                                      );
-                                      _streamController.add(randomIndex);
-                                      setState(() {
-                                        _isSpinning = true;
-                                        _selectedIndex = randomIndex;
-                                      });
-                                    }
-                                    : null,
-                            child: const Text(
-                              'GO!',
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontFamily: 'League Spartan',
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: -0.09,
-                              ),
-                            ),
+                          CustomButtonWidget(
+                            color: 'white',
+                            text: 'GO!',
+                            onPressed:() async {
+                              final randomIndex = Random().nextInt(
+                                context
+                                    .read<WheelBloc>()
+                                    .state
+                                    .options
+                                    .length,
+                              );
+                              _streamController.add(randomIndex);
+                              setState(() {
+                                _isSpinning = true;
+                                _selectedIndex = randomIndex;
+                              });
+                            },
                           ),
                         ] else ...[
                           const SizedBox.shrink(),
@@ -253,19 +213,9 @@ class _WheelOneViewState extends State<WheelOneView> {
                 ),
                 const SizedBox(height: 15),
                 if (state.selectedRestaurant != null) ...[
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: const Color(0xFF391713),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 32,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(100),
-                        side: const BorderSide(color: Color(0xFFFFA500)),
-                      ),
-                    ),
+                  CustomButtonWidget(
+                    color: 'white',
+                    text: 'Try Again',
                     onPressed: () async {
                       final randomIndex = Random().nextInt(
                         context.read<WheelBloc>().state.options.length,
@@ -276,17 +226,9 @@ class _WheelOneViewState extends State<WheelOneView> {
                         _selectedIndex = randomIndex;
                       });
                     },
-                    child: const Text(
-                      'Try Again',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontFamily: 'League Spartan',
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.09,
-                      ),
-                    ),
                   ),
                   const SizedBox(height: 20),
+                  // display the result restaurant, data is fetched from the bloc
                   RestaurantDetailCard(),
                 ],
                 const SizedBox(height: 24),
