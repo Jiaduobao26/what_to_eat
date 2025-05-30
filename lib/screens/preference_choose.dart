@@ -37,12 +37,12 @@ class _PreferenceChooseScreenState extends State<PreferenceChooseScreen> {
         _selectedIndexes.clear(); // 切换到dislike时清空选择
       });
     } else {
-      GoRouter.of(context).go('/wheel');
+      GoRouter.of(context).go('/');
     }
   }
 
   void _onSkip() {
-    GoRouter.of(context).go('/wheel');
+    GoRouter.of(context).go('/');
   }
 
   @override

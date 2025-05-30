@@ -183,7 +183,21 @@ class ProfileScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
             ],
-            _ProfileItem(title: 'Preference'),
+            _ProfileItem(
+              title: 'Preference',
+              trailing: 'manage',
+              onTap: () {
+                try {
+                  print('Attempting to navigate to /preference-manage');
+                  context.go('/preference-manage');
+                } catch (e) {
+                  print('Navigation error: $e');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Navigation error: $e')),
+                  );
+                }
+              },
+            ),
             const SizedBox(height: 16),
             _ProfileItem(title: 'History'),
             const SizedBox(height: 16),

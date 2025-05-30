@@ -12,6 +12,7 @@ import 'screens/profile.dart';
 import 'screens/register_screen.dart';
 import 'screens/forgetpassword_screen.dart';
 import '../screens/main_scaffold.dart';
+import 'screens/preference_manage_screen.dart';
 
 class AppRouter {
   final AuthenticationBloc authBloc;
@@ -49,24 +50,22 @@ class AppRouter {
         path: '/forgot-password',
         builder: (context, state) => const ForgotPasswordScreen(),
       ),
-      ShellRoute(
-        builder: (context, state, child) => MainScaffold(key: MainScaffold.globalKey),
-        routes: [
-          GoRoute(
-            path: '/',
-            name: 'home',
-            builder: (context, state) => const SizedBox.shrink(),
-          ),
-          GoRoute(
+      GoRoute(
             path: '/preferenceChoose',
             builder: (context, state) => const PreferenceChooseScreen(),
           ),
-          GoRoute(
-            path: '/map',
-            builder: (context, state) => const MapScreen(),
+      GoRoute(
+            path: '/preference-manage',
+            builder: (context, state) => const PreferenceManageScreen(), // Preference management route
           ),
-        ]
-      )
+      GoRoute(
+        path: '/',
+        builder: (context, state) => MainScaffold(key: MainScaffold.globalKey),
+      ),
+      GoRoute(
+        path: '/map',
+        builder: (context, state) => const MapScreen(),
+      ),
     ],
   );
 }

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../auth/authentication_bloc.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../screens/main_scaffold.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -24,13 +25,22 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return BlocListener<AuthenticationBloc, AuthenticationState>(
-      listener: (context, state) {
+      listener: (context, state) async {
         if (state.error != null) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(state.error!)),
           );
         }
-        if (state.isLoggedIn || state.isGuest) {
+        if (state.isLoggedIn) {
+          final prefs = await SharedPreferences.getInstance();
+          final justRegistered = prefs.getBool('justRegistered') ?? false;
+          if (!justRegistered) {
+            MainScaffold.globalKey.currentState?.switchTab(1);
+          } else {
+            await prefs.setBool('justRegistered', false);
+          }
+        }
+        if (state.isGuest) {
           MainScaffold.globalKey.currentState?.switchTab(1);
         }
       },

@@ -5,6 +5,7 @@ import '../auth/authentication_bloc.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../screens/main_scaffold.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -81,8 +82,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
           );
         }
         if (state.isLoggedIn) {
-          Future.delayed(const Duration(milliseconds: 100), () {
-            MainScaffold.globalKey.currentState?.switchTab(1);
+          Future.delayed(const Duration(milliseconds: 100), () async {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('justRegistered', true);
+            if (context.mounted) {
+              context.go('/preferenceChoose');
+            }
           });
         }
       },
@@ -93,7 +98,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Color(0xFF391713)),
-            onPressed: () => context.go('/preference'),
+            onPressed: () => context.go('/preferenceChoose'),
           ),
         ),
         body: Center(

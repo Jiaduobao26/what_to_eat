@@ -103,6 +103,7 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
 
   Future<void> fetchNearbyRestaurants({bool loadMore = false}) async {
     if (loadMore && (_nextPageToken == null || _isLoadingMore)) return;
+    if (!mounted) return;
     setState(() {
       if (!loadMore) _loading = true;
       _error = null;
@@ -118,6 +119,7 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final results = data['results'] as List;
+        if (!mounted) return;
         setState(() {
           if (loadMore) {
             _restaurants.addAll(results.map((e) => e as Map<String, dynamic>));
@@ -132,6 +134,7 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
         final provider = Provider.of<NearbyRestaurantProvider>(context, listen: false);
         provider.updateRestaurants(_restaurants);
       } else {
+        if (!mounted) return;
         setState(() {
           _error = '网络错误';
           _loading = false;
@@ -141,6 +144,7 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
     } catch (e) {
       print('fetchNearbyRestaurants error: '
           + e.toString());
+      if (!mounted) return;
       setState(() {
         _error = e.toString();
         _loading = false;
@@ -169,6 +173,7 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
       Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
       print('getCurrentLocation: position = '
           + position.toString());
+      if (!mounted) return;
       setState(() {
         lat = position.latitude;
         lng = position.longitude;
