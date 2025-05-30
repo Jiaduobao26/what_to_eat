@@ -186,6 +186,18 @@ class _GoogleRestaurantCard extends StatelessWidget {
     final name = info['name'] ?? '';
     final rating = info['rating']?.toString() ?? '-';
     final address = info['vicinity'] ?? '';
+    final types = info['types'] as List<dynamic>? ?? [];
+    
+    // 尝试从餐厅名称推断菜系
+    final cuisineFromName = _getCuisineFromName(name);
+    final cuisineFromTypes = _getCuisineFromTypes(types);
+    
+    // 优先使用从名称推断的菜系，其次使用类型中的菜系
+    final cuisineTypes = [
+      if (cuisineFromName.isNotEmpty) cuisineFromName,
+      if (cuisineFromTypes.isNotEmpty) cuisineFromTypes,
+    ].take(2).join(' • ');
+    
     final photoRef = (info['photos'] != null && info['photos'].isNotEmpty)
         ? info['photos'][0]['photo_reference']
         : null;
@@ -256,6 +268,32 @@ class _GoogleRestaurantCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  if (cuisineTypes.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.restaurant_menu,
+                          size: 14,
+                          color: Color(0xFFE95322),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            cuisineTypes,
+                            style: const TextStyle(
+                              color: Color(0xFFE95322),
+                              fontSize: 11,
+                              fontFamily: 'Roboto',
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -291,9 +329,21 @@ class _GoogleRestaurantCard extends StatelessWidget {
                     showDialog(
                       context: context,
                       builder: (context) => ListDialog(
+                        initialRestaurantLiked: false,
+                        initialRestaurantDisliked: false,
+                        initialCuisineLiked: false,
+                        initialCuisineDisliked: false,
+                        onLikeRestaurant: () {
+                          // TODO: 处理喜欢餐厅
+                          print('Like restaurant');
+                        },
                         onDislikeRestaurant: () {
                           // TODO: 处理不喜欢餐厅
                           print('Dislike restaurant');
+                        },
+                        onLikeCuisine: () {
+                          // TODO: 处理喜欢菜系
+                          print('Like cuisine');
                         },
                         onDislikeCuisine: () {
                           // TODO: 处理不喜欢菜系
@@ -305,6 +355,7 @@ class _GoogleRestaurantCard extends StatelessWidget {
                         onConfirm: () {
                           print('Confirm');
                         },
+                        description: 'You can mark this restaurant or cuisine as liked or disliked.',
                       ),
                     );
                   },
@@ -315,5 +366,106 @@ class _GoogleRestaurantCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _formatCuisineType(String type) {
+    // 将 Google Places API 的类型转换为更友好的显示名称
+    final typeMap = {
+      'restaurant': 'Restaurant',
+      'meal_takeaway': 'Takeaway',
+      'meal_delivery': 'Delivery',
+      'bakery': 'Bakery',
+      'bar': 'Bar',
+      'cafe': 'Cafe',
+      'night_club': 'Night Club',
+      'chinese_restaurant': 'Chinese',
+      'japanese_restaurant': 'Japanese',
+      'korean_restaurant': 'Korean',
+      'italian_restaurant': 'Italian',
+      'french_restaurant': 'French',
+      'mexican_restaurant': 'Mexican',
+      'indian_restaurant': 'Indian',
+      'thai_restaurant': 'Thai',
+      'vietnamese_restaurant': 'Vietnamese',
+      'american_restaurant': 'American',
+      'mediterranean_restaurant': 'Mediterranean',
+      'pizza_restaurant': 'Pizza',
+      'seafood_restaurant': 'Seafood',
+      'steakhouse': 'Steakhouse',
+      'sushi_restaurant': 'Sushi',
+      'fast_food_restaurant': 'Fast Food',
+      'sandwich_shop': 'Sandwich',
+      'ice_cream_shop': 'Ice Cream',
+      'liquor_store': 'Liquor Store',
+    };
+
+    return typeMap[type] ?? type.replaceAll('_', ' ').toUpperCase();
+  }
+
+  String _getCuisineFromName(String name) {
+    final lowerName = name.toLowerCase();
+    
+    // 根据餐厅名称中的关键词推断菜系
+    final cuisineKeywords = {
+      'chinese': ['chinese', 'china', 'beijing', 'shanghai', 'sichuan', 'szechuan', 'cantonese', 'dim sum', 'wok', 'dumpling', 'noodle house', 'panda', 'dragon', 'golden', 'lucky', 'mandarin'],
+      'japanese': ['japanese', 'japan', 'sushi', 'ramen', 'tokyo', 'osaka', 'sakura', 'tempura', 'bento', 'izakaya', 'yakitori', 'teppanyaki', 'hibachi'],
+      'korean': ['korean', 'korea', 'bbq', 'seoul', 'kimchi', 'bulgogi', 'bibimbap', 'grill'],
+      'italian': ['italian', 'italy', 'pizza', 'pasta', 'pizzeria', 'ristorante', 'trattoria', 'osteria', 'roma', 'milano', 'venice', 'napoli'],
+      'mexican': ['mexican', 'mexico', 'taco', 'burrito', 'cantina', 'casa', 'el ', 'la ', 'mariachi', 'azteca', 'guadalajara'],
+      'thai': ['thai', 'thailand', 'pad', 'tom', 'bangkok', 'royal', 'elephant', 'orchid'],
+      'vietnamese': ['vietnamese', 'vietnam', 'pho', 'banh', 'saigon', 'hanoi'],
+      'indian': ['indian', 'india', 'curry', 'tandoor', 'naan', 'biryani', 'masala', 'punjabi', 'bombay', 'delhi'],
+      'french': ['french', 'france', 'bistro', 'brasserie', 'cafe', 'paris', 'lyon', 'provence'],
+      'american': ['american', 'grill', 'diner', 'steakhouse', 'burger', 'bbq', 'wings'],
+      'mediterranean': ['mediterranean', 'greek', 'gyro', 'falafel', 'hummus', 'olive', 'santorini'],
+      'seafood': ['seafood', 'fish', 'crab', 'lobster', 'oyster', 'shrimp', 'clam'],
+    };
+    
+    for (final entry in cuisineKeywords.entries) {
+      for (final keyword in entry.value) {
+        if (lowerName.contains(keyword)) {
+          return _formatCuisineDisplay(entry.key);
+        }
+      }
+    }
+    
+    return '';
+  }
+
+  String _getCuisineFromTypes(List<dynamic> types) {
+    // 从 Google Places types 中提取有意义的菜系信息
+    final meaningfulTypes = <String>[];
+    
+    for (final type in types) {
+      final typeStr = type.toString();
+      if (!['establishment', 'point_of_interest', 'food', 'restaurant'].contains(typeStr)) {
+        if (typeStr.contains('restaurant') || typeStr.contains('cuisine')) {
+          meaningfulTypes.add(_formatCuisineType(typeStr));
+        } else if (['bakery', 'cafe', 'bar', 'meal_takeaway', 'meal_delivery'].contains(typeStr)) {
+          meaningfulTypes.add(_formatCuisineType(typeStr));
+        }
+      }
+    }
+    
+    return meaningfulTypes.isNotEmpty ? meaningfulTypes.first : '';
+  }
+  
+  String _formatCuisineDisplay(String cuisine) {
+    final displayMap = {
+      'chinese': 'Chinese',
+      'japanese': 'Japanese',
+      'korean': 'Korean',
+      'italian': 'Italian',
+      'mexican': 'Mexican',
+      'thai': 'Thai',
+      'vietnamese': 'Vietnamese',
+      'indian': 'Indian',
+      'french': 'French',
+      'american': 'American',
+      'mediterranean': 'Mediterranean',
+      'seafood': 'Seafood',
+    };
+    
+    return displayMap[cuisine] ?? cuisine.toUpperCase();
   }
 }

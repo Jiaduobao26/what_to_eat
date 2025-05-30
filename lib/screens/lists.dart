@@ -119,12 +119,16 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final results = data['results'] as List;
+        
+        // 过滤用户不喜欢的餐厅和菜系
+        final filteredResults = await _filterDislikedRestaurants(results.map((e) => e as Map<String, dynamic>).toList());
+        
         if (!mounted) return;
         setState(() {
           if (loadMore) {
-            _restaurants.addAll(results.map((e) => e as Map<String, dynamic>));
+            _restaurants.addAll(filteredResults);
           } else {
-            _restaurants = results.map((e) => e as Map<String, dynamic>).toList();
+            _restaurants = filteredResults;
           }
           _nextPageToken = data['next_page_token'];
           _loading = false;
@@ -186,16 +190,146 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
       fetchNearbyRestaurants();
     }
   }
+
+  Future<List<Map<String, dynamic>>> _filterDislikedRestaurants(List<Map<String, dynamic>> restaurants) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return restaurants;
+
+    try {
+      final repo = UserPreferenceRepository();
+      final pref = await repo.fetchPreference(user.uid);
+      if (pref == null) return restaurants;
+
+      final dislikedRestaurants = pref.dislikedRestaurants;
+      final dislikedCuisines = pref.dislikedCuisines;
+
+      return restaurants.where((restaurant) {
+        final placeId = restaurant['place_id'] as String? ?? '';
+        final types = restaurant['types'] as List<dynamic>? ?? [];
+        
+        // 检查餐厅是否在不喜欢列表中
+        if (dislikedRestaurants.contains(placeId)) {
+          return false;
+        }
+        
+        // 检查菜系是否在不喜欢列表中
+        for (final type in types) {
+          if (dislikedCuisines.contains(type.toString())) {
+            return false;
+          }
+        }
+        
+        return true;
+      }).toList();
+    } catch (e) {
+      print('_filterDislikedRestaurants error: $e');
+      return restaurants; // 如果过滤失败，返回原始列表
+    }
+  }
+
+  Future<Map<String, dynamic>?> _getPlaceDetails(String placeId) async {
+    try {
+      final url = 'https://maps.googleapis.com/maps/api/place/details/json?place_id=$placeId&key=${_ListsViewState.apiKey}&fields=editorial_summary,website,types,international_phone_number';
+      final response = await http.get(Uri.parse(url));
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['status'] == 'OK') {
+          return data['result'];
+        }
+      }
+    } catch (e) {
+      print('Error fetching place details: $e');
+    }
+    return null;
+  }
+
+  String _getCuisineFromEditorialSummary(String? summary) {
+    if (summary == null || summary.isEmpty) return '';
+    
+    final lowerSummary = summary.toLowerCase();
+    final cuisineKeywords = {
+      'chinese': ['chinese', 'china', 'sichuan', 'szechuan', 'cantonese', 'mandarin'],
+      'japanese': ['japanese', 'japan', 'sushi', 'ramen', 'tempura', 'yakitori'],
+      'korean': ['korean', 'korea', 'kimchi', 'bulgogi', 'bibimbap'],
+      'italian': ['italian', 'italy', 'pizza', 'pasta', 'mediterranean'],
+      'mexican': ['mexican', 'mexico', 'taco', 'burrito', 'latin'],
+      'thai': ['thai', 'thailand', 'pad thai', 'curry'],
+      'vietnamese': ['vietnamese', 'vietnam', 'pho', 'banh'],
+      'indian': ['indian', 'india', 'curry', 'tandoor', 'biryani'],
+      'french': ['french', 'france', 'bistro', 'brasserie'],
+      'american': ['american', 'burger', 'steakhouse', 'grill'],
+      'seafood': ['seafood', 'fish', 'crab', 'lobster', 'oyster'],
+    };
+    
+    final displayMap = {
+      'chinese': 'Chinese',
+      'japanese': 'Japanese',
+      'korean': 'Korean',
+      'italian': 'Italian',
+      'mexican': 'Mexican',
+      'thai': 'Thai',
+      'vietnamese': 'Vietnamese',
+      'indian': 'Indian',
+      'french': 'French',
+      'american': 'American',
+      'seafood': 'Seafood',
+    };
+    
+    for (final entry in cuisineKeywords.entries) {
+      for (final keyword in entry.value) {
+        if (lowerSummary.contains(keyword)) {
+          return displayMap[entry.key] ?? entry.key.toUpperCase();
+        }
+      }
+    }
+    
+    return '';
+  }
+
+  // 建议：使用 Google Places Text Search API 来获取更准确的菜系信息
+  // 例如：搜索 "Chinese restaurant near me" 而不是普通的 nearby search
+  Future<void> fetchRestaurantsByCuisine(String cuisine, {bool loadMore = false}) async {
+    // 这是一个示例方法，展示如何按菜系搜索
+    try {
+      String url = 'https://maps.googleapis.com/maps/api/place/textsearch/json?query=$cuisine restaurant&location=$lat,$lng&radius=2000&key=$apiKey&language=en';
+      if (loadMore && _nextPageToken != null) {
+        url += '&pagetoken=$_nextPageToken';
+      }
+      
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final results = data['results'] as List;
+        // 处理结果...
+        print('Found ${results.length} $cuisine restaurants');
+      }
+    } catch (e) {
+      print('Error fetching $cuisine restaurants: $e');
+    }
+  }
 }
 
 class _GoogleRestaurantCard extends StatelessWidget {
   final Map<String, dynamic> info;
   const _GoogleRestaurantCard({super.key, required this.info});
 
+  Future<bool> _isLikedRestaurant(String userId, String placeId) async {
+    final repo = UserPreferenceRepository();
+    final pref = await repo.fetchPreference(userId);
+    return pref?.likedRestaurants.contains(placeId) ?? false;
+  }
+
   Future<bool> _isDislikedRestaurant(String userId, String placeId) async {
     final repo = UserPreferenceRepository();
     final pref = await repo.fetchPreference(userId);
     return pref?.dislikedRestaurants.contains(placeId) ?? false;
+  }
+
+  Future<bool> _isLikedCuisine(String userId, String cuisine) async {
+    final repo = UserPreferenceRepository();
+    final pref = await repo.fetchPreference(userId);
+    return pref?.likedCuisines.contains(cuisine) ?? false;
   }
 
   Future<bool> _isDislikedCuisine(String userId, String cuisine) async {
@@ -204,11 +338,124 @@ class _GoogleRestaurantCard extends StatelessWidget {
     return pref?.dislikedCuisines.contains(cuisine) ?? false;
   }
 
+  String _getCuisineFromName(String name) {
+    final lowerName = name.toLowerCase();
+    
+    // 根据餐厅名称中的关键词推断菜系
+    final cuisineKeywords = {
+      'chinese': ['chinese', 'china', 'beijing', 'shanghai', 'sichuan', 'szechuan', 'cantonese', 'dim sum', 'wok', 'dumpling', 'noodle house', 'panda', 'dragon', 'golden', 'lucky', 'mandarin'],
+      'japanese': ['japanese', 'japan', 'sushi', 'ramen', 'tokyo', 'osaka', 'sakura', 'tempura', 'bento', 'izakaya', 'yakitori', 'teppanyaki', 'hibachi'],
+      'korean': ['korean', 'korea', 'bbq', 'seoul', 'kimchi', 'bulgogi', 'bibimbap', 'grill'],
+      'italian': ['italian', 'italy', 'pizza', 'pasta', 'pizzeria', 'ristorante', 'trattoria', 'osteria', 'roma', 'milano', 'venice', 'napoli'],
+      'mexican': ['mexican', 'mexico', 'taco', 'burrito', 'cantina', 'casa', 'el ', 'la ', 'mariachi', 'azteca', 'guadalajara'],
+      'thai': ['thai', 'thailand', 'pad', 'tom', 'bangkok', 'royal', 'elephant', 'orchid'],
+      'vietnamese': ['vietnamese', 'vietnam', 'pho', 'banh', 'saigon', 'hanoi'],
+      'indian': ['indian', 'india', 'curry', 'tandoor', 'naan', 'biryani', 'masala', 'punjabi', 'bombay', 'delhi'],
+      'french': ['french', 'france', 'bistro', 'brasserie', 'cafe', 'paris', 'lyon', 'provence'],
+      'american': ['american', 'grill', 'diner', 'steakhouse', 'burger', 'bbq', 'wings'],
+      'mediterranean': ['mediterranean', 'greek', 'gyro', 'falafel', 'hummus', 'olive', 'santorini'],
+      'seafood': ['seafood', 'fish', 'crab', 'lobster', 'oyster', 'shrimp', 'clam'],
+    };
+    
+    for (final entry in cuisineKeywords.entries) {
+      for (final keyword in entry.value) {
+        if (lowerName.contains(keyword)) {
+          return _formatCuisineDisplay(entry.key);
+        }
+      }
+    }
+    
+    return '';
+  }
+
+  String _getCuisineFromTypes(List<dynamic> types) {
+    // 从 Google Places types 中提取有意义的菜系信息
+    final meaningfulTypes = <String>[];
+    
+    for (final type in types) {
+      final typeStr = type.toString();
+      if (!['establishment', 'point_of_interest', 'food', 'restaurant'].contains(typeStr)) {
+        if (typeStr.contains('restaurant') || typeStr.contains('cuisine')) {
+          meaningfulTypes.add(_formatCuisineType(typeStr));
+        } else if (['bakery', 'cafe', 'bar', 'meal_takeaway', 'meal_delivery'].contains(typeStr)) {
+          meaningfulTypes.add(_formatCuisineType(typeStr));
+        }
+      }
+    }
+    
+    return meaningfulTypes.isNotEmpty ? meaningfulTypes.first : '';
+  }
+  
+  String _formatCuisineDisplay(String cuisine) {
+    final displayMap = {
+      'chinese': 'Chinese',
+      'japanese': 'Japanese',
+      'korean': 'Korean',
+      'italian': 'Italian',
+      'mexican': 'Mexican',
+      'thai': 'Thai',
+      'vietnamese': 'Vietnamese',
+      'indian': 'Indian',
+      'french': 'French',
+      'american': 'American',
+      'mediterranean': 'Mediterranean',
+      'seafood': 'Seafood',
+    };
+    
+    return displayMap[cuisine] ?? cuisine.toUpperCase();
+  }
+
+  String _formatCuisineType(String type) {
+    // 将 Google Places API 的类型转换为更友好的显示名称
+    final typeMap = {
+      'restaurant': 'Restaurant',
+      'meal_takeaway': 'Takeaway',
+      'meal_delivery': 'Delivery',
+      'bakery': 'Bakery',
+      'bar': 'Bar',
+      'cafe': 'Cafe',
+      'night_club': 'Night Club',
+      'chinese_restaurant': 'Chinese',
+      'japanese_restaurant': 'Japanese',
+      'korean_restaurant': 'Korean',
+      'italian_restaurant': 'Italian',
+      'french_restaurant': 'French',
+      'mexican_restaurant': 'Mexican',
+      'indian_restaurant': 'Indian',
+      'thai_restaurant': 'Thai',
+      'vietnamese_restaurant': 'Vietnamese',
+      'american_restaurant': 'American',
+      'mediterranean_restaurant': 'Mediterranean',
+      'pizza_restaurant': 'Pizza',
+      'seafood_restaurant': 'Seafood',
+      'steakhouse': 'Steakhouse',
+      'sushi_restaurant': 'Sushi',
+      'fast_food_restaurant': 'Fast Food',
+      'sandwich_shop': 'Sandwich',
+      'ice_cream_shop': 'Ice Cream',
+      'liquor_store': 'Liquor Store',
+    };
+
+    return typeMap[type] ?? type.replaceAll('_', ' ').toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
     final name = info['name'] ?? '';
     final rating = info['rating']?.toString() ?? '-';
     final address = info['vicinity'] ?? '';
+    final types = info['types'] as List<dynamic>? ?? [];
+    
+    // 尝试从餐厅名称推断菜系
+    final cuisineFromName = _getCuisineFromName(name);
+    final cuisineFromTypes = _getCuisineFromTypes(types);
+    
+    // 优先使用从名称推断的菜系，其次使用类型中的菜系
+    final cuisineTypes = [
+      if (cuisineFromName.isNotEmpty) cuisineFromName,
+      if (cuisineFromTypes.isNotEmpty) cuisineFromTypes,
+    ].take(2).join(' • ');
+    
     final photoRef = (info['photos'] != null && info['photos'].isNotEmpty)
         ? info['photos'][0]['photo_reference']
         : null;
@@ -279,6 +526,32 @@ class _GoogleRestaurantCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  if (cuisineTypes.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.restaurant_menu,
+                          size: 14,
+                          color: Color(0xFFE95322),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            cuisineTypes,
+                            style: const TextStyle(
+                              color: Color(0xFFE95322),
+                              fontSize: 11,
+                              fontFamily: 'Roboto',
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -314,18 +587,40 @@ class _GoogleRestaurantCard extends StatelessWidget {
                     final user = FirebaseAuth.instance.currentUser;
                     final placeId = info['place_id'] ?? '';
                     final cuisine = (info['types'] != null && info['types'].isNotEmpty) ? info['types'][0] : '';
+                    bool likedRestaurant = false;
                     bool dislikedRestaurant = false;
+                    bool likedCuisine = false;
                     bool dislikedCuisine = false;
                     if (user != null) {
+                      likedRestaurant = await _isLikedRestaurant(user.uid, placeId);
                       dislikedRestaurant = await _isDislikedRestaurant(user.uid, placeId);
+                      likedCuisine = await _isLikedCuisine(user.uid, cuisine);
                       dislikedCuisine = await _isDislikedCuisine(user.uid, cuisine);
                     }
                     if (!context.mounted) return;
                     showDialog(
                       context: context,
                       builder: (context) => ListDialog(
-                        initialRestaurantSelected: dislikedRestaurant,
-                        initialCuisineSelected: dislikedCuisine,
+                        initialRestaurantLiked: likedRestaurant,
+                        initialRestaurantDisliked: dislikedRestaurant,
+                        initialCuisineLiked: likedCuisine,
+                        initialCuisineDisliked: dislikedCuisine,
+                        onLikeRestaurant: () async {
+                          final user = FirebaseAuth.instance.currentUser;
+                          if (user != null && info['place_id'] != null) {
+                            final repo = UserPreferenceRepository();
+                            await repo.updatePreferenceField(
+                              user.uid,
+                              {
+                                'likedRestaurants': FieldValue.arrayUnion([info['place_id']]),
+                                'dislikedRestaurants': FieldValue.arrayRemove([info['place_id']]),
+                              },
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Added to liked restaurants')),
+                            );
+                          }
+                        },
                         onDislikeRestaurant: () async {
                           final user = FirebaseAuth.instance.currentUser;
                           if (user != null && info['place_id'] != null) {
@@ -333,11 +628,28 @@ class _GoogleRestaurantCard extends StatelessWidget {
                             await repo.updatePreferenceField(
                               user.uid,
                               {
-                                'dislikedRestaurants': FieldValue.arrayUnion([info['place_id']])
+                                'dislikedRestaurants': FieldValue.arrayUnion([info['place_id']]),
+                                'likedRestaurants': FieldValue.arrayRemove([info['place_id']]),
                               },
                             );
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('Added to disliked restaurants')),
+                            );
+                          }
+                        },
+                        onLikeCuisine: () async {
+                          final user = FirebaseAuth.instance.currentUser;
+                          if (user != null && info['types'] != null && info['types'].isNotEmpty) {
+                            final repo = UserPreferenceRepository();
+                            await repo.updatePreferenceField(
+                              user.uid,
+                              {
+                                'likedCuisines': FieldValue.arrayUnion([info['types'][0]]),
+                                'dislikedCuisines': FieldValue.arrayRemove([info['types'][0]]),
+                              },
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Added to liked cuisines')),
                             );
                           }
                         },
@@ -348,7 +660,8 @@ class _GoogleRestaurantCard extends StatelessWidget {
                             await repo.updatePreferenceField(
                               user.uid,
                               {
-                                'dislikedCuisines': FieldValue.arrayUnion([info['types'][0]])
+                                'dislikedCuisines': FieldValue.arrayUnion([info['types'][0]]),
+                                'likedCuisines': FieldValue.arrayRemove([info['types'][0]]),
                               },
                             );
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -362,7 +675,7 @@ class _GoogleRestaurantCard extends StatelessWidget {
                         onConfirm: () {
                           print('Confirm');
                         },
-                        description: 'You can mark this restaurant or cuisine as disliked. This will help us improve your recommendations.',
+                        description: 'You can mark this restaurant or cuisine as liked or disliked. This will help us improve your recommendations.',
                       ),
                     );
                   },

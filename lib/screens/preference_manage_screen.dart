@@ -155,8 +155,6 @@ class _PreferenceManageScreenState extends State<PreferenceManageScreen> {
                     onTap: () {
                       if (context.canPop()) {
                         context.pop();
-                      } else {
-                        context.go('/');
                       }
                     },
                     child: Container(
@@ -247,8 +245,6 @@ class _PreferenceManageScreenState extends State<PreferenceManageScreen> {
                       onPressed: () {
                         if (context.canPop()) {
                           context.pop();
-                        } else {
-                          context.go('/');
                         }
                       },
                       child: const Text(
@@ -278,8 +274,6 @@ class _PreferenceManageScreenState extends State<PreferenceManageScreen> {
                   onTap: () {
                     if (context.canPop()) {
                       context.pop();
-                    } else {
-                      context.go('/');
                     }
                   },
                   child: Container(

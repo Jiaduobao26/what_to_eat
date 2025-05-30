@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'dart:convert';
+import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../repositories/user_preference_repository.dart';
+import '../models/preference.dart';
 
 class PreferenceChooseScreen extends StatefulWidget {
   const PreferenceChooseScreen({super.key});
@@ -10,22 +16,53 @@ class PreferenceChooseScreen extends StatefulWidget {
 
 class _PreferenceChooseScreenState extends State<PreferenceChooseScreen> {
   String flag = 'like';
-  // 记录每个选项的选中状态
-  final Set<int> _selectedIndexes = {};
+  final Set<String> _likedCuisines = {};
+  final Set<String> _dislikedCuisines = {};
+  List<Map<String, String>> _allCuisines = [];
+  bool _loading = true;
+  bool _saving = false;
+  final _repo = UserPreferenceRepository();
 
-  final List<_FoodOption> _options = const [
-    _FoodOption(title: 'Fried chicken m.', price: 'N1,900'),
-    _FoodOption(title: 'Veggie tomato mix', price: 'N1,900'),
-    _FoodOption(title: 'Moi-moi and ekpa.', price: 'N1,900'),
-    _FoodOption(title: 'Egg and cucumber...', price: 'N1,900'),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadCuisines();
+  }
 
-  void _onCardTap(int index) {
+  Future<void> _loadCuisines() async {
+    try {
+      final data = await DefaultAssetBundle.of(context).loadString('assets/cuisines.json');
+      final json = jsonDecode(data);
+      setState(() {
+        _allCuisines = List<Map<String, String>>.from(
+          json['cuisines'].map((c) => {
+            'name': c['name'] as String,
+            'keyword': c['keyword'] as String,
+          })
+        );
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _loading = false;
+      });
+    }
+  }
+
+  void _onCuisineTap(String keyword) {
     setState(() {
-      if (_selectedIndexes.contains(index)) {
-        _selectedIndexes.remove(index);
+      if (flag == 'like') {
+        if (_likedCuisines.contains(keyword)) {
+          _likedCuisines.remove(keyword);
+        } else {
+          _likedCuisines.add(keyword);
+        }
       } else {
-        _selectedIndexes.add(index);
+        if (_dislikedCuisines.contains(keyword)) {
+          _dislikedCuisines.remove(keyword);
+        } else {
+          _dislikedCuisines.add(keyword);
+        }
       }
     });
   }
@@ -34,10 +71,82 @@ class _PreferenceChooseScreenState extends State<PreferenceChooseScreen> {
     if (flag == 'like') {
       setState(() {
         flag = 'dislike';
-        _selectedIndexes.clear(); // 切换到dislike时清空选择
       });
     } else {
+      _savePreferences();
+    }
+  }
+
+  Future<void> _savePreferences() async {
+    final user = FirebaseAuth.instance.currentUser;
+    
+    // 检查是否为游客
+    if (user == null) {
+      // 游客用户直接跳转，不保存偏好
       GoRouter.of(context).go('/');
+      return;
+    }
+
+    // 检查用户是否存在于 userinfo 数据库
+    final userInfo = await FirebaseFirestore.instanceFor(
+      app: FirebaseFirestore.instance.app,
+      databaseId: 'userinfo',
+    ).collection('userinfo').doc(user.uid).get();
+    
+    if (!userInfo.exists) {
+      // 如果用户信息不存在，说明是游客，直接跳转
+      GoRouter.of(context).go('/');
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+    });
+
+    try {
+      // 获取现有偏好或创建新的
+      final existingPref = await _repo.fetchPreference(user.uid);
+      
+      // 创建新的偏好对象，合并现有的餐厅偏好
+      final preference = Preference(
+        userId: user.uid,
+        likedCuisines: _likedCuisines.toList(),
+        dislikedCuisines: _dislikedCuisines.toList(),
+        likedRestaurants: existingPref?.likedRestaurants ?? [],
+        dislikedRestaurants: existingPref?.dislikedRestaurants ?? [],
+      );
+
+      // 保存到数据库
+      await _repo.setPreference(preference);
+
+      if (mounted) {
+        // 显示成功消息
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Preferences saved successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        
+        // 跳转到主页
+        GoRouter.of(context).go('/');
+      }
+    } catch (e) {
+      if (mounted) {
+        // 显示错误消息
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving preferences: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+        });
+      }
     }
   }
 
@@ -47,11 +156,30 @@ class _PreferenceChooseScreenState extends State<PreferenceChooseScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        leading: flag == 'dislike' 
+          ? IconButton(
+              icon: const Icon(Icons.arrow_back_ios, color: Color(0xFFFA4A0C)),
+              onPressed: () {
+                setState(() {
+                  flag = 'like';
+                });
+              },
+            )
+          : null,
         actions: [
           TextButton(
             onPressed: _onSkip,
@@ -76,7 +204,7 @@ class _PreferenceChooseScreenState extends State<PreferenceChooseScreen> {
             const SizedBox(height: 24),
             Center(
               child: Text(
-                flag == 'like' ? 'What do you like?' : 'What do you dislike?',
+                flag == 'like' ? 'What cuisines do you like?' : 'What cuisines do you dislike?',
                 style: const TextStyle(
                   color: Color(0xFFE95322),
                   fontSize: 24,
@@ -84,47 +212,116 @@ class _PreferenceChooseScreenState extends State<PreferenceChooseScreen> {
                   fontFamily: 'Inter',
                   fontWeight: FontWeight.w800,
                 ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Center(
+              child: Text(
+                flag == 'like' 
+                  ? 'Select your favorite cuisines to get better recommendations'
+                  : 'Select cuisines you want to avoid',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 16,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w400,
+                ),
+                textAlign: TextAlign.center,
               ),
             ),
             const SizedBox(height: 24),
             Expanded(
-              child: Form(
-                child: GridView.count(
+              child: GridView.builder(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
                   mainAxisSpacing: 16,
                   crossAxisSpacing: 16,
-                  childAspectRatio: 0.8,
-                  children: List.generate(_options.length, (index) {
-                    final option = _options[index];
-                    final selected = _selectedIndexes.contains(index);
-                    return GestureDetector(
-                      onTap: () => _onCardTap(index),
-                      child: _FoodCard(
-                        title: option.title,
-                        price: option.price,
-                        selected: selected,
-                        flag: flag,
-                      ),
-                    );
-                  }),
+                  childAspectRatio: 0.85,
                 ),
+                itemCount: _allCuisines.length,
+                itemBuilder: (context, index) {
+                  final cuisine = _allCuisines[index];
+                  final keyword = cuisine['keyword']!;
+                  final name = cuisine['name']!;
+                  
+                  bool isSelected = false;
+                  bool isDisabled = false;
+                  
+                  if (flag == 'like') {
+                    isSelected = _likedCuisines.contains(keyword);
+                  } else {
+                    isSelected = _dislikedCuisines.contains(keyword);
+                    // 在不喜欢界面，如果菜系已经被标记为喜欢，则禁用
+                    isDisabled = _likedCuisines.contains(keyword);
+                  }
+
+                  return GestureDetector(
+                    onTap: isDisabled ? null : () => _onCuisineTap(keyword),
+                    child: _CuisineCard(
+                      name: name,
+                      keyword: keyword,
+                      selected: isSelected,
+                      disabled: isDisabled,
+                      flag: flag,
+                    ),
+                  );
+                },
               ),
+            ),
+            const SizedBox(height: 16),
+            // Progress indicator
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: flag == 'like' ? const Color(0xFFE95322) : Colors.grey[300],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: flag == 'dislike' ? const Color(0xFFE95322) : Colors.grey[300],
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2C2C2C),
-                  foregroundColor: const Color(0xFFF5F5F5),
+                  backgroundColor: const Color(0xFFE95322),
+                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    side: const BorderSide(color: Color(0xFF2C2C2C)),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                onPressed: _onContinue,
-                child: Text(flag == 'like' ? 'Continue' : 'Finish'),
+                onPressed: _saving ? null : _onContinue,
+                child: _saving
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : Text(
+                        flag == 'like' ? 'Continue' : 'Finish',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
               ),
             ),
             const SizedBox(height: 24),
@@ -135,72 +332,135 @@ class _PreferenceChooseScreenState extends State<PreferenceChooseScreen> {
   }
 }
 
-class _FoodOption {
-  final String title;
-  final String price;
-
-  const _FoodOption({required this.title, required this.price});
-}
-
-class _FoodCard extends StatelessWidget {
-  final String title;
-  final String price;
+class _CuisineCard extends StatelessWidget {
+  final String name;
+  final String keyword;
   final bool selected;
+  final bool disabled;
   final String flag;
 
-  const _FoodCard({
-    required this.title,
-    required this.price,
-    this.selected = false,
-    this.flag = 'like',
+  const _CuisineCard({
+    required this.name,
+    required this.keyword,
+    required this.selected,
+    this.disabled = false,
+    required this.flag,
   });
 
   @override
   Widget build(BuildContext context) {
-    Color cardColor = Colors.white;
-    if (selected) {
-      cardColor = flag == 'like' ? Colors.green.shade100 : Colors.red.shade100;
+    Color backgroundColor = Colors.white;
+    Color borderColor = Colors.grey[300]!;
+    Color textColor = Colors.black87;
+    
+    if (disabled) {
+      // 禁用状态：灰色背景和边框
+      backgroundColor = Colors.grey[100]!;
+      borderColor = Colors.grey[200]!;
+      textColor = Colors.grey[400]!;
+    } else if (selected) {
+      if (flag == 'like') {
+        backgroundColor = Colors.green[50]!;
+        borderColor = Colors.green[400]!;
+        textColor = Colors.green[700]!;
+      } else {
+        backgroundColor = Colors.red[50]!;
+        borderColor = Colors.red[400]!;
+        textColor = Colors.red[700]!;
+      }
     }
-    return Card(
-      color: cardColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(30),
+
+    return Container(
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: borderColor,
+          width: selected ? 2 : 1,
+        ),
+        boxShadow: disabled ? [] : [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      elevation: 4,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // Cuisine image
             ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: const SizedBox(
-                width: 100,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: 80,
                 height: 80,
-                child: Icon(Icons.image, size: 60, color: Colors.grey),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ColorFiltered(
+                  colorFilter: disabled 
+                    ? const ColorFilter.mode(Colors.grey, BlendMode.saturation)
+                    : const ColorFilter.mode(Colors.transparent, BlendMode.multiply),
+                  child: Image.asset(
+                    'assets/cuisines_images/$keyword.png',
+                    width: 80,
+                    height: 80,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Icon(
+                      Icons.restaurant,
+                      size: 40,
+                      color: disabled ? Colors.grey[300] : Colors.grey[400],
+                    ),
+                  ),
+                ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+            // Cuisine name
             Text(
-              title,
+              name,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.black,
-                fontSize: 20,
-                fontFamily: 'SF Pro Rounded',
+              style: TextStyle(
+                color: textColor,
+                fontSize: 16,
+                fontFamily: 'Inter',
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              price,
-              style: const TextStyle(
-                color: Color(0xFFFA4A0C),
-                fontSize: 16,
-                fontFamily: 'SF Pro Rounded',
-                fontWeight: FontWeight.w700,
+            // Selection indicator or disabled indicator
+            if (disabled) ...[
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.favorite,
+                    color: Colors.green[400],
+                    size: 16,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Liked',
+                    style: TextStyle(
+                      color: Colors.green[400],
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
-            ),
+            ] else if (selected) ...[
+              const SizedBox(height: 4),
+              Icon(
+                Icons.check_circle,
+                color: flag == 'like' ? Colors.green[600] : Colors.red[600],
+                size: 20,
+              ),
+            ],
           ],
         ),
       ),

@@ -189,7 +189,7 @@ class ProfileScreen extends StatelessWidget {
               onTap: () {
                 try {
                   print('Attempting to navigate to /preference-manage');
-                  context.go('/preference-manage');
+                  context.push('/preference-manage');
                 } catch (e) {
                   print('Navigation error: $e');
                   ScaffoldMessenger.of(context).showSnackBar(

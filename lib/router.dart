@@ -62,10 +62,14 @@ class AppRouter {
         path: '/',
         builder: (context, state) => MainScaffold(key: MainScaffold.globalKey),
       ),
-      GoRoute(
-        path: '/map',
-        builder: (context, state) => const MapScreen(),
-      ),
+        GoRoute(
+          path: '/map',
+          builder: (context, state) => const MapScreen(),
+        ),
+        GoRoute(
+          path: '/profile',
+          builder: (context, state) => const ProfileScreen(),
+        ),
     ],
   );
 }

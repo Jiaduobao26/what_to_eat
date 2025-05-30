@@ -4,22 +4,30 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ListDialog extends StatefulWidget {
+  final VoidCallback? onLikeRestaurant;
   final VoidCallback? onDislikeRestaurant;
+  final VoidCallback? onLikeCuisine;
   final VoidCallback? onDislikeCuisine;
   final VoidCallback? onCancel;
   final VoidCallback? onConfirm;
-  final bool initialRestaurantSelected;
-  final bool initialCuisineSelected;
+  final bool initialRestaurantLiked;
+  final bool initialRestaurantDisliked;
+  final bool initialCuisineLiked;
+  final bool initialCuisineDisliked;
   final String description;
 
   const ListDialog({
     super.key,
+    this.onLikeRestaurant,
     this.onDislikeRestaurant,
+    this.onLikeCuisine,
     this.onDislikeCuisine,
     this.onCancel,
     this.onConfirm,
-    this.initialRestaurantSelected = false,
-    this.initialCuisineSelected = false,
+    this.initialRestaurantLiked = false,
+    this.initialRestaurantDisliked = false,
+    this.initialCuisineLiked = false,
+    this.initialCuisineDisliked = false,
     this.description = '',
   });
 
@@ -28,14 +36,18 @@ class ListDialog extends StatefulWidget {
 }
 
 class _ListDialogState extends State<ListDialog> {
-  late bool _isRestaurantSelected;
-  late bool _isCuisineSelected;
+  late bool _isRestaurantLiked;
+  late bool _isRestaurantDisliked;
+  late bool _isCuisineLiked;
+  late bool _isCuisineDisliked;
 
   @override
   void initState() {
     super.initState();
-    _isRestaurantSelected = widget.initialRestaurantSelected;
-    _isCuisineSelected = widget.initialCuisineSelected;
+    _isRestaurantLiked = widget.initialRestaurantLiked;
+    _isRestaurantDisliked = widget.initialRestaurantDisliked;
+    _isCuisineLiked = widget.initialCuisineLiked;
+    _isCuisineDisliked = widget.initialCuisineDisliked;
   }
 
   @override
@@ -105,23 +117,57 @@ class _ListDialogState extends State<ListDialog> {
     return Column(
       children: [
         _buildOption(
-          icon: 'R',
-          title: 'Dislike this restaurant',
-          isSelected: _isRestaurantSelected,
+          icon: 'Icons.favorite',
+          title: 'Like this restaurant',
+          isSelected: _isRestaurantLiked,
           onTap: () {
             setState(() {
-              _isRestaurantSelected = !_isRestaurantSelected;
+              _isRestaurantLiked = !_isRestaurantLiked;
+              if (_isRestaurantLiked) {
+                _isRestaurantDisliked = false; // 互斥：如果喜欢就不能不喜欢
+              }
+            });
+            widget.onLikeRestaurant?.call();
+          },
+        ),
+        _buildOption(
+          icon: 'Icons.favorite_border',
+          title: 'Dislike this restaurant',
+          isSelected: _isRestaurantDisliked,
+          onTap: () {
+            setState(() {
+              _isRestaurantDisliked = !_isRestaurantDisliked;
+              if (_isRestaurantDisliked) {
+                _isRestaurantLiked = false; // 互斥：如果不喜欢就不能喜欢
+              }
             });
             widget.onDislikeRestaurant?.call();
           },
         ),
         _buildOption(
-          icon: 'C',
-          title: 'Dislike this cuisine',
-          isSelected: _isCuisineSelected,
+          icon: 'Icons.restaurant',
+          title: 'Like this cuisine',
+          isSelected: _isCuisineLiked,
           onTap: () {
             setState(() {
-              _isCuisineSelected = !_isCuisineSelected;
+              _isCuisineLiked = !_isCuisineLiked;
+              if (_isCuisineLiked) {
+                _isCuisineDisliked = false; // 互斥：如果喜欢就不能不喜欢
+              }
+            });
+            widget.onLikeCuisine?.call();
+          },
+        ),
+        _buildOption(
+          icon: 'Icons.no_meals',
+          title: 'Dislike this cuisine',
+          isSelected: _isCuisineDisliked,
+          onTap: () {
+            setState(() {
+              _isCuisineDisliked = !_isCuisineDisliked;
+              if (_isCuisineDisliked) {
+                _isCuisineLiked = false; // 互斥：如果不喜欢就不能喜欢
+              }
             });
             widget.onDislikeCuisine?.call();
           },
@@ -162,16 +208,14 @@ class _ListDialogState extends State<ListDialog> {
                 ),
               ),
               child: Center(
-                child: Text(
-                  icon,
-                  style: const TextStyle(
-                    color: Color(0xFF4F378A),
-                    fontSize: 16,
-                    fontFamily: 'Roboto',
-                    fontWeight: FontWeight.w500,
-                    height: 1.50,
-                    letterSpacing: 0.15,
-                  ),
+                child: Icon(
+                  icon == 'Icons.favorite' ? Icons.favorite :
+                  icon == 'Icons.favorite_border' ? Icons.favorite_border :
+                  icon == 'Icons.restaurant' ? Icons.restaurant :
+                  icon == 'Icons.no_meals' ? Icons.no_meals :
+                  Icons.circle,
+                  size: 16,
+                  color: const Color(0xFF4F378A),
                 ),
               ),
             ),
