@@ -121,9 +121,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       backgroundColor: Color(0xFFFFA500),
                     ),
                   );
-                  Future.delayed(const Duration(seconds: 2), () {
-                    context.go('/');
-                  });
                 },
                 child: BlocBuilder<AuthenticationBloc, AuthenticationState>(
                   builder: (context, state) {

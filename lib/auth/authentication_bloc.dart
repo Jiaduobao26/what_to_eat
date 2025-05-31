@@ -81,6 +81,35 @@ class AuthenticationState extends Equatable {
 class AuthenticationBloc extends Bloc<AuthenticationEvent, AuthenticationState> {
   AuthenticationBloc() : super(const AuthenticationState.unauthenticated()) {
     
+        on<AuthenticationRegisterRequested>((event, emit) async {
+      emit(const AuthenticationState.loading());
+      try {
+        // 1. 创建用户
+        final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: event.email,
+          password: event.password,
+        );
+
+        // 2. 设置用户显示名称
+        await userCredential.user?.updateDisplayName(event.name);
+        
+        // 3. 发送验证邮件
+        await userCredential.user?.sendEmailVerification();
+        
+        // 4. 提示用户验证邮箱
+        emit(AuthenticationState.error('Registration successful! Please verify your email address.'));
+        
+        // 5. 登出用户，等待邮箱验证
+        await FirebaseAuth.instance.signOut();
+        
+        // 注意：将 Firestore 写入逻辑移到登录事件中
+      } on FirebaseAuthException catch (e) {
+        emit(AuthenticationState.error(e.message ?? "注册失败"));
+      } catch (e) {
+        emit(AuthenticationState.error(e.toString()));
+      }
+    });
+
     on<AuthenticationLoginRequested>((event, emit) async {
       emit(const AuthenticationState.loading());
       try {
@@ -108,40 +137,26 @@ class AuthenticationBloc extends Bloc<AuthenticationEvent, AuthenticationState> 
       emit(const AuthenticationState.unauthenticated());
     });
 
-    on<AuthenticationRegisterRequested>((event, emit) async {
-      emit(const AuthenticationState.loading());
-      try {
-        final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: event.email,
-          password: event.password,
-        );
-        // 写入 Firestore
-        await FirebaseFirestore.instanceFor(
-          app: FirebaseFirestore.instance.app,
-          databaseId: 'userinfo', 
-        ).collection('userinfo').doc(userCredential.user!.uid).set({
-          'name': event.name,
-          'email': event.email,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-        // 设置FirebaseAuth用户的displayName
-        await userCredential.user?.updateDisplayName(event.name);
-        // 发送邮箱验证邮件
-        await userCredential.user?.sendEmailVerification();
-        emit(const AuthenticationState.authenticated());
-      } on FirebaseAuthException catch (e) {
-        emit(AuthenticationState.error(e.message ?? "failed to register"));
-      } catch (e) {
-        emit(AuthenticationState.error(e.toString()));
-      }
-    });
+    
 
-    on<AuthenticationResetPasswordRequested>((event, emit) async {
+      on<AuthenticationResetPasswordRequested>((event, emit) async {
       emit(const AuthenticationState.loading());
       try {
-        // TODO: 实现实际的密码重置逻辑
-        await Future.delayed(const Duration(seconds: 1)); // 模拟网络请求
+        await FirebaseAuth.instance.sendPasswordResetEmail(
+          email: event.email,
+        );
         emit(const AuthenticationState.unauthenticated());
+      } on FirebaseAuthException catch (e) {
+        switch (e.code) {
+          case 'invalid-email':
+            emit(const AuthenticationState.error('邮箱格式不正确'));
+            break;
+          case 'user-not-found':
+            emit(const AuthenticationState.error('该邮箱未注册'));
+            break;
+          default:
+            emit(AuthenticationState.error(e.message ?? '重置密码失败'));
+        }
       } catch (e) {
         emit(AuthenticationState.error(e.toString()));
       }
