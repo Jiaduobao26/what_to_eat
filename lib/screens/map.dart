@@ -185,11 +185,8 @@ class _MapScreenViewState extends State<MapScreenView> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Color(0xFF391713)),
           onPressed: () {
-            if (Navigator.of(context).canPop()) {
-              Navigator.of(context).maybePop();
-            } else {
-              MainScaffold.globalKey.currentState?.switchTab(0);
-            }
+            // 现在使用push导航，直接pop即可
+            Navigator.of(context).pop();
           },
         ),
         title: const Text(

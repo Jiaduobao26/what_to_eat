@@ -21,7 +21,6 @@ class _PreferenceManageScreenState extends State<PreferenceManageScreen> {
   bool _isGuest = false;
   final _repo = UserPreferenceRepository();
   final _cuisineController = TextEditingController();
-  final _restaurantController = TextEditingController();
   List<Map<String, dynamic>> _allCuisines = [];
 
   @override
@@ -72,8 +71,31 @@ class _PreferenceManageScreenState extends State<PreferenceManageScreen> {
     
     final likedCuisines = prefs.getStringList('guest_liked_cuisines') ?? [];
     final dislikedCuisines = prefs.getStringList('guest_disliked_cuisines') ?? [];
-    final likedRestaurants = prefs.getStringList('guest_liked_restaurants') ?? [];
-    final dislikedRestaurants = prefs.getStringList('guest_disliked_restaurants') ?? [];
+    
+    // 加载餐厅信息 - 兼容旧格式
+    final likedRestaurantsStr = prefs.getStringList('guest_liked_restaurants') ?? [];
+    final dislikedRestaurantsStr = prefs.getStringList('guest_disliked_restaurants') ?? [];
+    
+    // 将字符串转换为RestaurantInfo对象
+    final likedRestaurants = likedRestaurantsStr.map((str) {
+      try {
+        final map = jsonDecode(str) as Map<String, dynamic>;
+        return RestaurantInfo.fromMap(map);
+      } catch (e) {
+        // 兼容旧格式：如果解析失败，认为是直接的名字字符串
+        return RestaurantInfo(id: str, name: str);
+      }
+    }).toList();
+    
+    final dislikedRestaurants = dislikedRestaurantsStr.map((str) {
+      try {
+        final map = jsonDecode(str) as Map<String, dynamic>;
+        return RestaurantInfo.fromMap(map);
+      } catch (e) {
+        // 兼容旧格式：如果解析失败，认为是直接的名字字符串
+        return RestaurantInfo(id: str, name: str);
+      }
+    }).toList();
     
     _preference = Preference(
       userId: 'guest',
@@ -100,8 +122,8 @@ class _PreferenceManageScreenState extends State<PreferenceManageScreen> {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setStringList('guest_liked_cuisines', _preference!.likedCuisines);
         await prefs.setStringList('guest_disliked_cuisines', _preference!.dislikedCuisines);
-        await prefs.setStringList('guest_liked_restaurants', _preference!.likedRestaurants);
-        await prefs.setStringList('guest_disliked_restaurants', _preference!.dislikedRestaurants);
+        await prefs.setStringList('guest_liked_restaurants', _preference!.likedRestaurants.map((r) => jsonEncode(r.toMap())).toList());
+        await prefs.setStringList('guest_disliked_restaurants', _preference!.dislikedRestaurants.map((r) => jsonEncode(r.toMap())).toList());
       } else {
         // 正常用户 - 保存到Firebase
         await _repo.setPreference(_preference!);
@@ -128,24 +150,6 @@ class _PreferenceManageScreenState extends State<PreferenceManageScreen> {
     await _updatePreference();
   }
 
-  void _addRestaurant(bool like) async {
-    final name = _restaurantController.text.trim();
-    if (name.isEmpty) return;
-    setState(() {
-      if (like) {
-        if (!_preference!.likedRestaurants.contains(name)) {
-          _preference!.likedRestaurants.add(name);
-        }
-      } else {
-        if (!_preference!.dislikedRestaurants.contains(name)) {
-          _preference!.dislikedRestaurants.add(name);
-        }
-      }
-      _restaurantController.clear();
-    });
-    await _updatePreference();
-  }
-
   void _removeCuisine(String keyword, bool like) async {
     setState(() {
       if (like) {
@@ -157,12 +161,12 @@ class _PreferenceManageScreenState extends State<PreferenceManageScreen> {
     await _updatePreference();
   }
 
-  void _removeRestaurant(String name, bool like) async {
+  void _removeRestaurant(String restaurantId, bool like) async {
     setState(() {
       if (like) {
-        _preference!.likedRestaurants.remove(name);
+        _preference!.likedRestaurants.removeWhere((r) => r.id == restaurantId);
       } else {
-        _preference!.dislikedRestaurants.remove(name);
+        _preference!.dislikedRestaurants.removeWhere((r) => r.id == restaurantId);
       }
     });
     await _updatePreference();
@@ -322,9 +326,7 @@ class _PreferenceManageScreenState extends State<PreferenceManageScreen> {
             preference: _preference!,
             allCuisines: _allCuisines,
             cuisineController: _cuisineController,
-            restaurantController: _restaurantController,
             onAddCuisine: _addCuisine,
-            onAddRestaurant: _addRestaurant,
             onRemoveCuisine: _removeCuisine,
             onRemoveRestaurant: _removeRestaurant,
           ),
@@ -335,9 +337,7 @@ class _PreferenceManageScreenState extends State<PreferenceManageScreen> {
             preference: _preference!,
             allCuisines: _allCuisines,
             cuisineController: _cuisineController,
-            restaurantController: _restaurantController,
             onAddCuisine: _addCuisine,
-            onAddRestaurant: _addRestaurant,
             onRemoveCuisine: _removeCuisine,
             onRemoveRestaurant: _removeRestaurant,
           ),
@@ -353,9 +353,7 @@ class _PreferenceSection extends StatelessWidget {
   final Preference preference;
   final List<Map<String, dynamic>> allCuisines;
   final TextEditingController cuisineController;
-  final TextEditingController restaurantController;
   final Function(bool) onAddCuisine;
-  final Function(bool) onAddRestaurant;
   final Function(String, bool) onRemoveCuisine;
   final Function(String, bool) onRemoveRestaurant;
 
@@ -365,9 +363,7 @@ class _PreferenceSection extends StatelessWidget {
     required this.preference,
     required this.allCuisines,
     required this.cuisineController,
-    required this.restaurantController,
     required this.onAddCuisine,
-    required this.onAddRestaurant,
     required this.onRemoveCuisine,
     required this.onRemoveRestaurant,
     super.key,
@@ -376,7 +372,6 @@ class _PreferenceSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cuisines = isLiked ? preference.likedCuisines : preference.dislikedCuisines;
-    final restaurants = isLiked ? preference.likedRestaurants : preference.dislikedRestaurants;
 
     return Container(
       width: double.infinity,
@@ -496,9 +491,9 @@ class _PreferenceSection extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           
-          // Restaurant Section
+          // Restaurant Section - 只显示，不能添加
           Text(
-            'Restaurant Name',
+            'Restaurants',
             style: TextStyle(
               color: Colors.grey[700],
               fontSize: 16,
@@ -507,78 +502,49 @@ class _PreferenceSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          restaurants.isEmpty
-              ? Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[50],
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey[200]!),
-                  ),
-                  child: Text(
-                    'No restaurants added yet',
-                    style: TextStyle(
-                      color: Colors.grey[500],
-                      fontSize: 14,
-                      fontStyle: FontStyle.italic,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                )
-              : Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: restaurants.map((r) => Chip(
-                    label: Text(r),
-                    onDeleted: () => onRemoveRestaurant(r, isLiked),
-                    backgroundColor: isLiked ? Colors.green[50] : Colors.red[50],
-                    deleteIconColor: isLiked ? Colors.green[700] : Colors.red[700],
-                    labelStyle: TextStyle(
-                      color: isLiked ? Colors.green[700] : Colors.red[700],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  )).toList(),
-                ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: restaurantController,
-                  decoration: InputDecoration(
-                    hintText: 'Enter restaurant name',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey[300]!),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey[300]!),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFFFA4A0C)),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFA270C),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.add, color: Colors.white),
-                  onPressed: () => onAddRestaurant(isLiked),
-                ),
-              ),
-            ],
-          ),
+          _buildRestaurantsDisplay(isLiked),
         ],
       ),
+    );
+  }
+
+  Widget _buildRestaurantsDisplay(bool isLiked) {
+    final restaurants = isLiked ? preference.likedRestaurants : preference.dislikedRestaurants;
+
+    if (restaurants.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.grey[50],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[200]!),
+        ),
+        child: Text(
+          'No restaurants added yet',
+          style: TextStyle(
+            color: Colors.grey[500],
+            fontSize: 14,
+            fontStyle: FontStyle.italic,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: restaurants.map((r) => Chip(
+        label: Text(r.name),
+        onDeleted: () => onRemoveRestaurant(r.id, isLiked),
+        backgroundColor: isLiked ? Colors.green[50] : Colors.red[50],
+        deleteIconColor: isLiked ? Colors.green[700] : Colors.red[700],
+        labelStyle: TextStyle(
+          color: isLiked ? Colors.green[700] : Colors.red[700],
+          fontWeight: FontWeight.w500,
+        ),
+      )).toList(),
     );
   }
 } 

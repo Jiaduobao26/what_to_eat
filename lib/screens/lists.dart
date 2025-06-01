@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:geolocator/geolocator.dart';
 import '../repositories/user_preference_repository.dart';
+import '../models/preference.dart' as pref_models;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/nearby_restaurant_provider.dart';
@@ -43,6 +44,7 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
   final ScrollController _scrollController = ScrollController();
   bool _isLoadingMore = false;
   bool _hasLoaded = false;
+  NearbyRestaurantProvider? _provider; // 保存Provider引用
 
   // 你可以将API_KEY放到安全的地方
   static const String apiKey = 'AIzaSyBUUuCGzKK9z-yY2gHz1kvvTzhIufEkQZc';
@@ -59,13 +61,13 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
     
     // 首先检查Provider中是否已有数据
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = Provider.of<NearbyRestaurantProvider>(context, listen: false);
-      if (provider.hasLoaded && provider.restaurants.isNotEmpty && !_hasLoaded) {
+      _provider = Provider.of<NearbyRestaurantProvider>(context, listen: false);
+      if (_provider!.hasLoaded && _provider!.restaurants.isNotEmpty && !_hasLoaded) {
         // 使用Provider中的数据
         setState(() {
-          _restaurants = provider.restaurants;
-          lat = provider.lat;
-          lng = provider.lng;
+          _restaurants = _provider!.restaurants;
+          lat = _provider!.lat;
+          lng = _provider!.lng;
           _loading = false;
           _hasLoaded = true;
         });
@@ -79,7 +81,7 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
       }
       
       // 监听Provider数据变化
-      provider.addListener(_onProviderDataChanged);
+      _provider!.addListener(_onProviderDataChanged);
     });
     
     _scrollController.addListener(() {
@@ -94,21 +96,20 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
   @override
   void dispose() {
     _scrollController.dispose();
-    final provider = Provider.of<NearbyRestaurantProvider>(context, listen: false);
-    provider.removeListener(_onProviderDataChanged);
+    // 使用保存的Provider引用，安全地移除listener
+    _provider?.removeListener(_onProviderDataChanged);
     super.dispose();
   }
   
   void _onProviderDataChanged() {
-    final provider = Provider.of<NearbyRestaurantProvider>(context, listen: false);
-    if (provider.hasLoaded && provider.restaurants.isNotEmpty && mounted) {
+    if (_provider != null && _provider!.hasLoaded && _provider!.restaurants.isNotEmpty && mounted) {
       setState(() {
-        _restaurants = provider.restaurants;
-        lat = provider.lat;
-        lng = provider.lng;
+        _restaurants = _provider!.restaurants;
+        lat = _provider!.lat;
+        lng = _provider!.lng;
         _loading = false;
         _hasLoaded = true;
-        _error = provider.error;
+        _error = _provider!.error;
       });
       
       // 通知父组件餐厅数据已更新
@@ -128,8 +129,7 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
               : RefreshIndicator(
                   onRefresh: () async {
                     // 重置Provider状态
-                    final provider = Provider.of<NearbyRestaurantProvider>(context, listen: false);
-                    provider.reset();
+                    _provider?.reset();
                     
                     // 重置本地状态
                     _hasLoaded = false;
@@ -137,7 +137,7 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
                     _nextPageToken = null;
                     
                     // 重新开始预加载
-                    await provider.preloadRestaurants();
+                    await _provider?.preloadRestaurants();
                   },
                   child: ListView.builder(
                     controller: _scrollController,
@@ -197,8 +197,7 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
         widget.onRestaurantsChanged?.call(_restaurants);
         
         // 更新 Provider
-        final provider = Provider.of<NearbyRestaurantProvider>(context, listen: false);
-        provider.updateRestaurants(_restaurants);
+        _provider?.updateRestaurants(_restaurants);
       } else {
         if (!mounted) return;
         setState(() {
@@ -262,7 +261,7 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
       final pref = await repo.fetchPreference(user.uid);
       if (pref == null) return restaurants;
 
-      final dislikedRestaurants = pref.dislikedRestaurants;
+      final dislikedRestaurantIds = pref.dislikedRestaurantIds;
       final dislikedCuisines = pref.dislikedCuisines;
 
       return restaurants.where((restaurant) {
@@ -270,7 +269,7 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
         final types = restaurant['types'] as List<dynamic>? ?? [];
         
         // 检查餐厅是否在不喜欢列表中
-        if (dislikedRestaurants.contains(placeId)) {
+        if (dislikedRestaurantIds.contains(placeId)) {
           return false;
         }
         
@@ -390,13 +389,13 @@ class _GoogleRestaurantCard extends StatelessWidget {
   Future<bool> _isLikedRestaurant(String userId, String placeId) async {
     final repo = UserPreferenceRepository();
     final pref = await repo.fetchPreference(userId);
-    return pref?.likedRestaurants.contains(placeId) ?? false;
+    return pref?.likedRestaurantIds.contains(placeId) ?? false;
   }
 
   Future<bool> _isDislikedRestaurant(String userId, String placeId) async {
     final repo = UserPreferenceRepository();
     final pref = await repo.fetchPreference(userId);
-    return pref?.dislikedRestaurants.contains(placeId) ?? false;
+    return pref?.dislikedRestaurantIds.contains(placeId) ?? false;
   }
 
   Future<bool> _isLikedCuisine(String userId, String cuisine) async {
@@ -680,15 +679,37 @@ class _GoogleRestaurantCard extends StatelessWidget {
                         initialCuisineDisliked: dislikedCuisine,
                         onLikeRestaurant: () async {
                           final user = FirebaseAuth.instance.currentUser;
-                          if (user != null && info['place_id'] != null) {
+                          if (user != null && info['place_id'] != null && info['name'] != null) {
                             final repo = UserPreferenceRepository();
-                            await repo.updatePreferenceField(
-                              user.uid,
-                              {
-                                'likedRestaurants': FieldValue.arrayUnion([info['place_id']]),
-                                'dislikedRestaurants': FieldValue.arrayRemove([info['place_id']]),
-                              },
+                            final pref = await repo.fetchPreference(user.uid) ?? 
+                                pref_models.Preference(userId: user.uid);
+                            
+                            // 创建餐厅信息对象
+                            final restaurantInfo = pref_models.RestaurantInfo(
+                              id: info['place_id'],
+                              name: info['name'],
                             );
+                            
+                            // 添加到喜欢列表，从不喜欢列表移除
+                            final updatedLiked = List<pref_models.RestaurantInfo>.from(pref.likedRestaurants);
+                            final updatedDisliked = List<pref_models.RestaurantInfo>.from(pref.dislikedRestaurants);
+                            
+                            // 移除重复项
+                            updatedLiked.removeWhere((r) => r.id == restaurantInfo.id);
+                            updatedDisliked.removeWhere((r) => r.id == restaurantInfo.id);
+                            
+                            // 添加到喜欢列表
+                            updatedLiked.add(restaurantInfo);
+                            
+                            final updatedPref = pref_models.Preference(
+                              userId: user.uid,
+                              likedRestaurants: updatedLiked,
+                              dislikedRestaurants: updatedDisliked,
+                              likedCuisines: pref.likedCuisines,
+                              dislikedCuisines: pref.dislikedCuisines,
+                            );
+                            
+                            await repo.setPreference(updatedPref);
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('Added to liked restaurants')),
                             );
@@ -696,15 +717,37 @@ class _GoogleRestaurantCard extends StatelessWidget {
                         },
                         onDislikeRestaurant: () async {
                           final user = FirebaseAuth.instance.currentUser;
-                          if (user != null && info['place_id'] != null) {
+                          if (user != null && info['place_id'] != null && info['name'] != null) {
                             final repo = UserPreferenceRepository();
-                            await repo.updatePreferenceField(
-                              user.uid,
-                              {
-                                'dislikedRestaurants': FieldValue.arrayUnion([info['place_id']]),
-                                'likedRestaurants': FieldValue.arrayRemove([info['place_id']]),
-                              },
+                            final pref = await repo.fetchPreference(user.uid) ?? 
+                                pref_models.Preference(userId: user.uid);
+                            
+                            // 创建餐厅信息对象
+                            final restaurantInfo = pref_models.RestaurantInfo(
+                              id: info['place_id'],
+                              name: info['name'],
                             );
+                            
+                            // 添加到不喜欢列表，从喜欢列表移除
+                            final updatedLiked = List<pref_models.RestaurantInfo>.from(pref.likedRestaurants);
+                            final updatedDisliked = List<pref_models.RestaurantInfo>.from(pref.dislikedRestaurants);
+                            
+                            // 移除重复项
+                            updatedLiked.removeWhere((r) => r.id == restaurantInfo.id);
+                            updatedDisliked.removeWhere((r) => r.id == restaurantInfo.id);
+                            
+                            // 添加到不喜欢列表
+                            updatedDisliked.add(restaurantInfo);
+                            
+                            final updatedPref = pref_models.Preference(
+                              userId: user.uid,
+                              likedRestaurants: updatedLiked,
+                              dislikedRestaurants: updatedDisliked,
+                              likedCuisines: pref.likedCuisines,
+                              dislikedCuisines: pref.dislikedCuisines,
+                            );
+                            
+                            await repo.setPreference(updatedPref);
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('Added to disliked restaurants')),
                             );

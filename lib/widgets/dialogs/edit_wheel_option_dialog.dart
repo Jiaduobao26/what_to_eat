@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import '../../blocs/wheel_bloc.dart';
+import '../../repositories/user_preference_repository.dart';
+import '../../models/preference.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:math';
 
 class EditWheelOptionsDialog extends StatelessWidget {
   const EditWheelOptionsDialog({super.key});
@@ -120,7 +124,24 @@ class EditWheelOptionsDialog extends StatelessWidget {
                       label: const Text('Add Option'),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF4CAF50),
+                        side: const BorderSide(color: Color(0xFF4CAF50)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () => _fillWithPreferences(context),
+                      icon: const Icon(Icons.shuffle),
+                      label: const Text('Random preferences'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
                   Expanded(
                     child: OutlinedButton(
                       style: OutlinedButton.styleFrom(
@@ -141,5 +162,136 @@ class EditWheelOptionsDialog extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _fillWithPreferences(BuildContext context) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        Fluttertoast.showToast(
+          msg: "Please log in to use your preferences.",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.CENTER,
+          backgroundColor: Colors.black87,
+          textColor: Colors.white,
+          fontSize: 16.0,
+        );
+        return;
+      }
+
+      final repo = UserPreferenceRepository();
+      final preference = await repo.fetchPreference(user.uid);
+      
+      if (preference == null || preference.likedCuisines.isEmpty) {
+        Fluttertoast.showToast(
+          msg: "No liked cuisines found. Please add some preferences first.",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.CENTER,
+          backgroundColor: Colors.black87,
+          textColor: Colors.white,
+          fontSize: 16.0,
+        );
+        return;
+      }
+
+      final wheelBloc = context.read<WheelBloc>();
+      final allCuisines = wheelBloc.cuisines;
+      final currentOptions = wheelBloc.state.options;
+      
+      // 找到与用户喜欢的菜系匹配的可用菜系
+      final matchedOptions = <Option>[];
+      
+      for (final likedCuisine in preference.likedCuisines) {
+        // 在所有可用菜系中寻找匹配的
+        for (final cuisine in allCuisines) {
+          if (cuisine.keyword == likedCuisine || cuisine.name.toLowerCase() == likedCuisine.toLowerCase()) {
+            // 避免重复添加
+            if (!matchedOptions.any((option) => option.keyword == cuisine.keyword)) {
+              matchedOptions.add(Option(name: cuisine.name, keyword: cuisine.keyword));
+            }
+            break;
+          }
+        }
+      }
+      
+      if (matchedOptions.isEmpty) {
+        Fluttertoast.showToast(
+          msg: "No matching cuisines found in available options.",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.CENTER,
+          backgroundColor: Colors.black87,
+          textColor: Colors.white,
+          fontSize: 16.0,
+        );
+        return;
+      }
+      
+      // 随机打乱匹配的选项
+      final random = Random();
+      matchedOptions.shuffle(random);
+      
+      // 确保至少有2个选项，如果偏好不够，保留一些现有选项
+      final newOptions = <Option>[];
+      final maxOptions = currentOptions.length;
+      
+      // 先添加随机排序的匹配偏好
+      newOptions.addAll(matchedOptions.take(maxOptions));
+      
+      // 如果偏好选项少于当前选项数量，用现有选项补足
+      if (newOptions.length < maxOptions) {
+        final remainingCount = maxOptions - newOptions.length;
+        final existingOptionsToKeep = currentOptions.where((option) => 
+          option.keyword.isNotEmpty && 
+          !newOptions.any((newOption) => newOption.keyword == option.keyword)
+        ).toList();
+        
+        // 也随机选择现有选项
+        existingOptionsToKeep.shuffle(random);
+        newOptions.addAll(existingOptionsToKeep.take(remainingCount));
+      }
+      
+      // 确保至少有2个选项
+      if (newOptions.length < 2) {
+        // 如果还是不够，从所有菜系中随机选择一些
+        final additionalNeeded = 2 - newOptions.length;
+        final usedKeywords = newOptions.map((opt) => opt.keyword).toSet();
+        final availableOptions = allCuisines
+          .where((cuisine) => !usedKeywords.contains(cuisine.keyword))
+          .toList();
+        
+        // 随机选择可用选项
+        availableOptions.shuffle(random);
+        final selectedOptions = availableOptions
+          .take(additionalNeeded)
+          .map((cuisine) => Option(name: cuisine.name, keyword: cuisine.keyword));
+        
+        newOptions.addAll(selectedOptions);
+      }
+
+      // 逐个更新选项
+      for (int i = 0; i < newOptions.length && i < currentOptions.length; i++) {
+        wheelBloc.add(UpdateOptionEvent(i, newOptions[i].name, newOptions[i].keyword));
+      }
+      
+      Fluttertoast.showToast(
+        msg: "Wheel randomly filled with your preferences! (${newOptions.length} options)",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.CENTER,
+        backgroundColor: Colors.green[700],
+        textColor: Colors.white,
+        fontSize: 16.0,
+      );
+      
+    } catch (e) {
+      print('Error filling with preferences: $e');
+      Fluttertoast.showToast(
+        msg: "Error loading preferences: $e",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.CENTER,
+        backgroundColor: Colors.red[700],
+        textColor: Colors.white,
+        fontSize: 16.0,
+      );
+    }
   }
 }

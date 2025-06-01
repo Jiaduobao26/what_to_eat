@@ -27,8 +27,8 @@ class AppBarActionsWidget extends StatelessWidget {
     if (location.startsWith('/lists')) {
       icon = Icons.map;
       onPressed = () {
-        // 使用GoRouter并传递餐厅数据
-        context.go('/map', extra: restaurants);
+        // 使用push而不是go，这样可以正常返回
+        context.push('/map', extra: restaurants);
       };
     } else if (location.startsWith('/wheel')) {
       icon = Icons.add;
