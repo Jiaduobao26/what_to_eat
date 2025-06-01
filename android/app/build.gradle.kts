@@ -5,7 +5,7 @@ plugins {
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
-    id("com.google.gms.google-services") version "4.4.2"
+    id("com.google.gms.google-services")
 }
 dependencies {
     // Import the Firebase BoM
@@ -31,7 +31,7 @@ if (localPropertiesFile.exists()) {
 val mapApiKey: String = localProperties.getProperty("API_KEY") ?: ""
 
 android {
-    namespace = "com.example.what_to_eat"
+    namespace = "com.csen268.what_to_eat"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "27.0.12077973"
 

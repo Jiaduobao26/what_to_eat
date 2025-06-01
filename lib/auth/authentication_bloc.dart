@@ -185,6 +185,7 @@ class AuthenticationBloc extends Bloc<AuthenticationEvent, AuthenticationState> 
       // Clear guest status when logout is pressed
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('guestLoggedIn');
+      // Keep guestHasCompletedSetup to avoid showing preference choose again
       await FirebaseAuth.instance.signOut();
       emit(const AuthenticationState.unauthenticated());
     });
@@ -192,23 +193,50 @@ class AuthenticationBloc extends Bloc<AuthenticationEvent, AuthenticationState> 
     on<AuthenticationResetPasswordRequested>((event, emit) async {
       emit(const AuthenticationState.loading());
       try {
-        // TODO: Implement actual password reset logic
-        await Future.delayed(const Duration(seconds: 1)); // Simulate network request
-        emit(const AuthenticationState.unauthenticated());
+        // Send password reset email using Firebase Auth
+        await FirebaseAuth.instance.sendPasswordResetEmail(email: event.email);
+        emit(const AuthenticationState.error('Password reset email sent successfully! Please check your email inbox.'));
+      } on FirebaseAuthException catch (e) {
+        String errorMessage;
+        switch (e.code) {
+          case 'user-not-found':
+            errorMessage = 'No user found with this email address.';
+            break;
+          case 'invalid-email':
+            errorMessage = 'Invalid email address format.';
+            break;
+          case 'too-many-requests':
+            errorMessage = 'Too many requests. Please try again later.';
+            break;
+          default:
+            errorMessage = e.message ?? 'Failed to send password reset email.';
+        }
+        emit(AuthenticationState.error(errorMessage));
       } catch (e) {
-        emit(AuthenticationState.error(e.toString()));
+        emit(AuthenticationState.error('An unexpected error occurred: ${e.toString()}'));
       }
     });
 
     on<AuthenticationGuestRequested>((event, emit) async {
-      // First time guest login - goes to preference choose
-      emit(const AuthenticationState.guest());
+      // Check if guest has completed setup before
+      final prefs = await SharedPreferences.getInstance();
+      final hasCompletedSetup = prefs.getBool('guestHasCompletedSetup') ?? false;
+      
+      if (hasCompletedSetup) {
+        // Guest has been here before, mark as logged in directly
+        await prefs.setBool('guestLoggedIn', true);
+        emit(const AuthenticationState.guestLoggedIn());
+      } else {
+        // First time guest login - goes to preference choose
+        emit(const AuthenticationState.guest());
+      }
     });
 
     on<AuthenticationGuestLoginButtonPressed>((event, emit) async {
       // Mark guest as logged in and save to SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('guestLoggedIn', true);
+      await prefs.setBool('guestHasCompletedSetup', true); // Mark setup as completed
       emit(const AuthenticationState.guestLoggedIn());
     });
 
