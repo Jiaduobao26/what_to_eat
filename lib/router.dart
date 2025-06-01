@@ -25,14 +25,16 @@ class AppRouter {
       final authState = context.read<AuthenticationBloc>().state;
       final isLoggedIn = authState.isLoggedIn;
       final isGuest = authState.isGuest;
+      final isGuestLoggedIn = authState.isGuestLoggedIn;
       final loggingIn = state.uri.toString() == '/login' || 
                          state.uri.toString() == '/register' ||
                          state.uri.toString() == '/forgot-password';
-      print('redirect: $isLoggedIn, $isGuest, $loggingIn');
-      if (!isLoggedIn && !isGuest && !loggingIn) {
+      print('redirect: $isLoggedIn, $isGuest, $isGuestLoggedIn, $loggingIn');
+      
+      if (!isLoggedIn && !isGuest && !isGuestLoggedIn && !loggingIn) {
         return '/login';
       }
-      if ((isLoggedIn || isGuest) && loggingIn) {
+      if ((isLoggedIn || isGuest || isGuestLoggedIn) && loggingIn) {
         return '/';
       }
       return null;
@@ -64,7 +66,9 @@ class AppRouter {
       ),
         GoRoute(
           path: '/map',
-          builder: (context, state) => const MapScreen(),
+          builder: (context, state) => MapScreen(
+            restaurants: state.extra as List<Map<String, dynamic>>?,
+          ),
         ),
         GoRoute(
           path: '/profile',

@@ -13,19 +13,23 @@ import '../services/nearby_restaurant_provider.dart';
 import 'package:provider/provider.dart';
 
 class Lists extends StatelessWidget {
-  const Lists({super.key});
+  final Function(List<Map<String, dynamic>>)? onRestaurantsChanged;
+  
+  const Lists({super.key, this.onRestaurantsChanged});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => RestaurantListBloc(),
-      child: const ListsView(),
+      child: ListsView(onRestaurantsChanged: onRestaurantsChanged),
     );
   }
 }
 
 class ListsView extends StatefulWidget {
-  const ListsView({super.key});
+  final Function(List<Map<String, dynamic>>)? onRestaurantsChanged;
+  
+  const ListsView({super.key, this.onRestaurantsChanged});
 
   @override
   State<ListsView> createState() => _ListsViewState();
@@ -52,10 +56,32 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
   @override
   void initState() {
     super.initState();
-    if (!_hasLoaded) {
-      getCurrentLocation();
-      _hasLoaded = true;
-    }
+    
+    // 首先检查Provider中是否已有数据
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = Provider.of<NearbyRestaurantProvider>(context, listen: false);
+      if (provider.hasLoaded && provider.restaurants.isNotEmpty && !_hasLoaded) {
+        // 使用Provider中的数据
+        setState(() {
+          _restaurants = provider.restaurants;
+          lat = provider.lat;
+          lng = provider.lng;
+          _loading = false;
+          _hasLoaded = true;
+        });
+        
+        // 通知父组件餐厅数据已更新
+        widget.onRestaurantsChanged?.call(_restaurants);
+      } else if (!_hasLoaded) {
+        // Provider中没有数据，开始加载
+        _startBackgroundLoading();
+        _hasLoaded = true;
+      }
+      
+      // 监听Provider数据变化
+      provider.addListener(_onProviderDataChanged);
+    });
+    
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 100) {
         if (_nextPageToken != null && !_isLoadingMore) {
@@ -63,6 +89,31 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
         }
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    final provider = Provider.of<NearbyRestaurantProvider>(context, listen: false);
+    provider.removeListener(_onProviderDataChanged);
+    super.dispose();
+  }
+  
+  void _onProviderDataChanged() {
+    final provider = Provider.of<NearbyRestaurantProvider>(context, listen: false);
+    if (provider.hasLoaded && provider.restaurants.isNotEmpty && mounted) {
+      setState(() {
+        _restaurants = provider.restaurants;
+        lat = provider.lat;
+        lng = provider.lng;
+        _loading = false;
+        _hasLoaded = true;
+        _error = provider.error;
+      });
+      
+      // 通知父组件餐厅数据已更新
+      widget.onRestaurantsChanged?.call(_restaurants);
+    }
   }
 
   @override
@@ -76,10 +127,17 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
               ? Center(child: Text('加载失败:\n$_error'))
               : RefreshIndicator(
                   onRefresh: () async {
+                    // 重置Provider状态
+                    final provider = Provider.of<NearbyRestaurantProvider>(context, listen: false);
+                    provider.reset();
+                    
+                    // 重置本地状态
                     _hasLoaded = false;
                     _restaurants.clear();
                     _nextPageToken = null;
-                    await getCurrentLocation();
+                    
+                    // 重新开始预加载
+                    await provider.preloadRestaurants();
                   },
                   child: ListView.builder(
                     controller: _scrollController,
@@ -134,6 +192,10 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
           _loading = false;
           _isLoadingMore = false;
         });
+        
+        // 通知父组件餐厅数据已更新
+        widget.onRestaurantsChanged?.call(_restaurants);
+        
         // 更新 Provider
         final provider = Provider.of<NearbyRestaurantProvider>(context, listen: false);
         provider.updateRestaurants(_restaurants);
@@ -306,6 +368,17 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
       }
     } catch (e) {
       print('Error fetching $cuisine restaurants: $e');
+    }
+  }
+
+  // 后台加载方法，不会显示loading状态给用户
+  Future<void> _startBackgroundLoading() async {
+    try {
+      await getCurrentLocation();
+    } catch (e) {
+      print('Background loading error: $e');
+      // 即使出错也继续，使用默认位置
+      await fetchNearbyRestaurants();
     }
   }
 }

@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PreferenceManageScreen extends StatefulWidget {
   const PreferenceManageScreen({super.key});
@@ -33,29 +34,54 @@ class _PreferenceManageScreenState extends State<PreferenceManageScreen> {
   Future<void> _fetchData() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
+      // 游客模式 - 从SharedPreferences读取偏好
+      await _loadGuestPreferences();
       setState(() {
         _isGuest = true;
         _loading = false;
       });
       return;
     }
+    
     // 检查是否为游客
     final userInfo = await FirebaseFirestore.instanceFor(
       app: FirebaseFirestore.instance.app,
       databaseId: 'userinfo',
     ).collection('userinfo').doc(user.uid).get();
+    
     if (!userInfo.exists) {
+      // 用户信息不存在，也是游客模式
+      await _loadGuestPreferences();
       setState(() {
         _isGuest = true;
         _loading = false;
       });
       return;
     }
+    
+    // 正常用户 - 从Firebase读取偏好
     final pref = await _repo.fetchPreference(user.uid);
     setState(() {
       _preference = pref ?? Preference(userId: user.uid);
       _loading = false;
     });
+  }
+
+  Future<void> _loadGuestPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    final likedCuisines = prefs.getStringList('guest_liked_cuisines') ?? [];
+    final dislikedCuisines = prefs.getStringList('guest_disliked_cuisines') ?? [];
+    final likedRestaurants = prefs.getStringList('guest_liked_restaurants') ?? [];
+    final dislikedRestaurants = prefs.getStringList('guest_disliked_restaurants') ?? [];
+    
+    _preference = Preference(
+      userId: 'guest',
+      likedCuisines: likedCuisines,
+      dislikedCuisines: dislikedCuisines,
+      likedRestaurants: likedRestaurants,
+      dislikedRestaurants: dislikedRestaurants,
+    );
   }
 
   Future<void> _loadCuisines() async {
@@ -69,7 +95,17 @@ class _PreferenceManageScreenState extends State<PreferenceManageScreen> {
 
   Future<void> _updatePreference() async {
     if (_preference != null) {
-      await _repo.setPreference(_preference!);
+      if (_isGuest) {
+        // 游客模式 - 保存到SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setStringList('guest_liked_cuisines', _preference!.likedCuisines);
+        await prefs.setStringList('guest_disliked_cuisines', _preference!.dislikedCuisines);
+        await prefs.setStringList('guest_liked_restaurants', _preference!.likedRestaurants);
+        await prefs.setStringList('guest_disliked_restaurants', _preference!.dislikedRestaurants);
+      } else {
+        // 正常用户 - 保存到Firebase
+        await _repo.setPreference(_preference!);
+      }
       setState(() {});
     }
   }
@@ -178,82 +214,35 @@ class _PreferenceManageScreenState extends State<PreferenceManageScreen> {
                     ),
                   ),
                   const SizedBox(width: 16),
-                  const Text(
-                    'Preference Management',
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 28,
-                      fontFamily: 'SF Pro Text',
-                      fontWeight: FontWeight.w600,
-                    ),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Guest',
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontSize: 24,
+                          fontFamily: 'SF Pro Text',
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        'Data saved locally',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 14,
+                          fontFamily: 'SF Pro Text',
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-              const SizedBox(height: 40),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0x07000000),
-                      blurRadius: 40,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.person_outline,
-                      size: 60,
-                      color: Colors.grey[400],
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Guest Mode',
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 22,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Sign in to manage your food preferences',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 16,
-                        fontFamily: 'SF Pro Text',
-                        fontWeight: FontWeight.w400,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFA270C),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
-                      ),
-                      onPressed: () {
-                        if (context.canPop()) {
-                          context.pop();
-                        }
-                      },
-                      child: const Text(
-                        'Back to Profile',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ],
-                ),
+              const SizedBox(height: 24),
+              // 显示完整的偏好管理界面
+              Expanded(
+                child: _buildPreferenceManagementContent(),
               ),
             ],
           ),
@@ -310,41 +299,49 @@ class _PreferenceManageScreenState extends State<PreferenceManageScreen> {
             ),
             const SizedBox(height: 32),
             Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _PreferenceSection(
-                      title: 'Liked',
-                      isLiked: true,
-                      preference: _preference!,
-                      allCuisines: _allCuisines,
-                      cuisineController: _cuisineController,
-                      restaurantController: _restaurantController,
-                      onAddCuisine: _addCuisine,
-                      onAddRestaurant: _addRestaurant,
-                      onRemoveCuisine: _removeCuisine,
-                      onRemoveRestaurant: _removeRestaurant,
-                    ),
-                    const SizedBox(height: 24),
-                    _PreferenceSection(
-                      title: 'Disliked',
-                      isLiked: false,
-                      preference: _preference!,
-                      allCuisines: _allCuisines,
-                      cuisineController: _cuisineController,
-                      restaurantController: _restaurantController,
-                      onAddCuisine: _addCuisine,
-                      onAddRestaurant: _addRestaurant,
-                      onRemoveCuisine: _removeCuisine,
-                      onRemoveRestaurant: _removeRestaurant,
-                    ),
-                  ],
-                ),
-              ),
+              child: _buildPreferenceManagementContent(),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPreferenceManagementContent() {
+    if (_preference == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _PreferenceSection(
+            title: 'Liked',
+            isLiked: true,
+            preference: _preference!,
+            allCuisines: _allCuisines,
+            cuisineController: _cuisineController,
+            restaurantController: _restaurantController,
+            onAddCuisine: _addCuisine,
+            onAddRestaurant: _addRestaurant,
+            onRemoveCuisine: _removeCuisine,
+            onRemoveRestaurant: _removeRestaurant,
+          ),
+          const SizedBox(height: 24),
+          _PreferenceSection(
+            title: 'Disliked',
+            isLiked: false,
+            preference: _preference!,
+            allCuisines: _allCuisines,
+            cuisineController: _cuisineController,
+            restaurantController: _restaurantController,
+            onAddCuisine: _addCuisine,
+            onAddRestaurant: _addRestaurant,
+            onRemoveCuisine: _removeCuisine,
+            onRemoveRestaurant: _removeRestaurant,
+          ),
+        ],
       ),
     );
   }

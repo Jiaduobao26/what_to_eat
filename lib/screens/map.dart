@@ -10,16 +10,20 @@ import 'package:go_router/go_router.dart';
 import '../screens/main_scaffold.dart';
 
 class MapScreen extends StatelessWidget {
-  const MapScreen({super.key});
+  final List<Map<String, dynamic>>? restaurants;
+  
+  const MapScreen({super.key, this.restaurants});
 
   @override
   Widget build(BuildContext context) {
-    return const MapScreenView();
+    return MapScreenView(restaurants: restaurants);
   }
 }
 
 class MapScreenView extends StatefulWidget {
-  const MapScreenView({super.key});
+  final List<Map<String, dynamic>>? restaurants;
+  
+  const MapScreenView({super.key, this.restaurants});
 
   @override
   State<MapScreenView> createState() => _MapScreenViewState();
@@ -35,11 +39,32 @@ class _MapScreenViewState extends State<MapScreenView> {
   // Santa Clara, CA 95051
   double lat = 37.3467;
   double lng = -121.9842;
+  
+  // 添加取消标志
+  bool _disposed = false;
 
   @override
   void initState() {
     super.initState();
-    getCurrentLocation();
+    
+    // 如果有传入的餐厅数据，直接使用
+    if (widget.restaurants != null && widget.restaurants!.isNotEmpty) {
+      setState(() {
+        _restaurants = widget.restaurants!;
+        _createMarkersFromRestaurants();
+        _loading = false;
+      });
+    } else {
+      // 没有传入数据时才获取位置并加载
+      getCurrentLocation();
+    }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _mapController?.dispose();
+    super.dispose();
   }
 
   Future<void> getCurrentLocation() async {
@@ -54,6 +79,10 @@ class _MapScreenViewState extends State<MapScreenView> {
       }
       if (permission == LocationPermission.deniedForever) return fetchNearbyRestaurants();
       Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      
+      // 检查组件是否仍然挂载
+      if (!mounted || _disposed) return;
+      
       setState(() {
         lat = position.latitude;
         lng = position.longitude;
@@ -65,17 +94,29 @@ class _MapScreenViewState extends State<MapScreenView> {
   }
 
   Future<void> fetchNearbyRestaurants() async {
+    // 检查组件是否仍然挂载
+    if (!mounted || _disposed) return;
+    
     setState(() {
       _loading = true;
       _error = null;
     });
+    
     try {
       final url =
           'https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=$lat,$lng&radius=2000&type=restaurant&key=$apiKey&language=en';
       final response = await http.get(Uri.parse(url));
+      
+      // 检查组件是否仍然挂载
+      if (!mounted || _disposed) return;
+      
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final results = data['results'] as List;
+        
+        // 再次检查组件是否仍然挂载
+        if (!mounted || _disposed) return;
+        
         setState(() {
           _restaurants = results.map((e) => e as Map<String, dynamic>).toList();
           _markers = _restaurants.map((r) {
@@ -89,12 +130,18 @@ class _MapScreenViewState extends State<MapScreenView> {
           _loading = false;
         });
       } else {
+        // 检查组件是否仍然挂载
+        if (!mounted || _disposed) return;
+        
         setState(() {
           _error = 'Network error';
           _loading = false;
         });
       }
     } catch (e) {
+      // 检查组件是否仍然挂载
+      if (!mounted || _disposed) return;
+      
       setState(() {
         _error = e.toString();
         _loading = false;
@@ -107,6 +154,25 @@ class _MapScreenViewState extends State<MapScreenView> {
     _mapController?.animateCamera(CameraUpdate.newLatLng(
       LatLng(loc['lat'], loc['lng']),
     ));
+  }
+
+  void _createMarkersFromRestaurants() {
+    _markers = _restaurants.map((r) {
+      final loc = r['geometry']['location'];
+      return Marker(
+        markerId: MarkerId(r['place_id']),
+        position: LatLng(loc['lat'], loc['lng']),
+        infoWindow: InfoWindow(title: r['name']),
+      );
+    }).toSet();
+    
+    // 如果有餐厅数据，使用第一家餐厅的位置作为地图中心
+    if (_restaurants.isNotEmpty) {
+      final firstRestaurant = _restaurants.first;
+      final loc = firstRestaurant['geometry']['location'];
+      lat = loc['lat'];
+      lng = loc['lng'];
+    }
   }
 
   @override

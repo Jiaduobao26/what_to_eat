@@ -5,7 +5,14 @@ import '../screens/map.dart';
 class AppBarActionsWidget extends StatelessWidget {
   final String location;
   final VoidCallback? onEditWheel;
-  const AppBarActionsWidget({super.key, required this.location, this.onEditWheel});
+  final List<Map<String, dynamic>>? restaurants;
+  
+  const AppBarActionsWidget({
+    super.key, 
+    required this.location, 
+    this.onEditWheel,
+    this.restaurants,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -20,9 +27,8 @@ class AppBarActionsWidget extends StatelessWidget {
     if (location.startsWith('/lists')) {
       icon = Icons.map;
       onPressed = () {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (context) => const MapScreen()),
-        );
+        // 使用GoRouter并传递餐厅数据
+        context.go('/map', extra: restaurants);
       };
     } else if (location.startsWith('/wheel')) {
       icon = Icons.add;

@@ -6,6 +6,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../repositories/user_preference_repository.dart';
 import '../models/preference.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../auth/authentication_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PreferenceChooseScreen extends StatefulWidget {
   const PreferenceChooseScreen({super.key});
@@ -80,30 +83,67 @@ class _PreferenceChooseScreenState extends State<PreferenceChooseScreen> {
   Future<void> _savePreferences() async {
     final user = FirebaseAuth.instance.currentUser;
     
-    // 检查是否为游客
-    if (user == null) {
-      // 游客用户直接跳转，不保存偏好
-      GoRouter.of(context).go('/');
-      return;
-    }
-
-    // 检查用户是否存在于 userinfo 数据库
-    final userInfo = await FirebaseFirestore.instanceFor(
-      app: FirebaseFirestore.instance.app,
-      databaseId: 'userinfo',
-    ).collection('userinfo').doc(user.uid).get();
-    
-    if (!userInfo.exists) {
-      // 如果用户信息不存在，说明是游客，直接跳转
-      GoRouter.of(context).go('/');
-      return;
-    }
-
     setState(() {
       _saving = true;
     });
 
     try {
+      // 检查是否为游客
+      if (user == null) {
+        // 游客用户 - 保存到SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        
+        // 保存偏好到本地
+        await prefs.setStringList('guest_liked_cuisines', _likedCuisines.toList());
+        await prefs.setStringList('guest_disliked_cuisines', _dislikedCuisines.toList());
+        await prefs.setStringList('guest_liked_restaurants', []);
+        await prefs.setStringList('guest_disliked_restaurants', []);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Preferences saved locally!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          
+          // 游客用户完成偏好选择后标记为已登录
+          context.read<AuthenticationBloc>().add(AuthenticationGuestLoginButtonPressed());
+          GoRouter.of(context).go('/');
+        }
+        return;
+      }
+
+      // 检查用户是否存在于 userinfo 数据库
+      final userInfo = await FirebaseFirestore.instanceFor(
+        app: FirebaseFirestore.instance.app,
+        databaseId: 'userinfo',
+      ).collection('userinfo').doc(user.uid).get();
+      
+      if (!userInfo.exists) {
+        // 如果用户信息不存在，说明是游客，保存到本地
+        final prefs = await SharedPreferences.getInstance();
+        
+        await prefs.setStringList('guest_liked_cuisines', _likedCuisines.toList());
+        await prefs.setStringList('guest_disliked_cuisines', _dislikedCuisines.toList());
+        await prefs.setStringList('guest_liked_restaurants', []);
+        await prefs.setStringList('guest_disliked_restaurants', []);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Preferences saved locally!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          
+          context.read<AuthenticationBloc>().add(AuthenticationGuestLoginButtonPressed());
+          GoRouter.of(context).go('/');
+        }
+        return;
+      }
+
+      // 正常用户 - 保存到Firebase
       // 获取现有偏好或创建新的
       final existingPref = await _repo.fetchPreference(user.uid);
       
@@ -151,6 +191,11 @@ class _PreferenceChooseScreenState extends State<PreferenceChooseScreen> {
   }
 
   void _onSkip() {
+    final user = FirebaseAuth.instance.currentUser;
+    // 如果是访客，标记为已登录
+    if (user == null) {
+      context.read<AuthenticationBloc>().add(AuthenticationGuestLoginButtonPressed());
+    }
     GoRouter.of(context).go('/');
   }
 

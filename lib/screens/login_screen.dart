@@ -40,7 +40,12 @@ class _LoginScreenState extends State<LoginScreen> {
             await prefs.setBool('justRegistered', false);
           }
         }
-        if (state.isGuest) {
+        if (state.isGuest && !state.isGuestLoggedIn) {
+          // First time guest - go to preference choose
+          context.go('/preferenceChoose');
+        }
+        if (state.isGuestLoggedIn) {
+          // Returning guest - go directly to main app
           MainScaffold.globalKey.currentState?.switchTab(1);
         }
       },
@@ -174,7 +179,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 32),
               TextButton(
                 onPressed: () {
-                   context.read<AuthenticationBloc>().add(AuthenticationGuestRequested());
+                  context.read<AuthenticationBloc>().add(AuthenticationGuestRequested());
                 },
                 child: const Text(
                   'Continue without sign in',

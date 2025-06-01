@@ -45,6 +45,15 @@ class _MyRouterAppState extends State<MyRouterApp> {
     super.initState();
     final authBloc = context.read<AuthenticationBloc>();
     _appRouter = AppRouter(authBloc: authBloc); // pass the AuthenticationBloc to AppRouter
+    
+    // Check guest status on app startup
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      authBloc.add(AuthenticationCheckGuestStatusRequested());
+      
+      // 预加载餐厅数据
+      final restaurantProvider = context.read<NearbyRestaurantProvider>();
+      restaurantProvider.preloadRestaurants();
+    });
   }
 
   @override

@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 import 'package:bloc/bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Events
 abstract class AuthenticationEvent extends Equatable {
@@ -52,16 +53,24 @@ class AuthenticationResetPasswordRequested extends AuthenticationEvent {
 
 class AuthenticationGuestRequested extends AuthenticationEvent {}
 
+class AuthenticationGuestLoginButtonPressed extends AuthenticationEvent {}
+
+class AuthenticationCleanupUnverifiedRequested extends AuthenticationEvent {}
+
+class AuthenticationCheckGuestStatusRequested extends AuthenticationEvent {}
+
 // States
 class AuthenticationState extends Equatable {
   final bool isLoggedIn;
   final bool isGuest;
+  final bool isGuestLoggedIn;
   final String? error;
   final bool isLoading;
 
   const AuthenticationState._({
     required this.isLoggedIn,
     this.isGuest = false,
+    this.isGuestLoggedIn = false,
     this.error,
     this.isLoading = false,
   });
@@ -69,42 +78,73 @@ class AuthenticationState extends Equatable {
   const AuthenticationState.authenticated() : this._(isLoggedIn: true, isGuest: false);
   const AuthenticationState.unauthenticated() : this._(isLoggedIn: false, isGuest: false);
   const AuthenticationState.guest() : this._(isLoggedIn: false, isGuest: true);
+  const AuthenticationState.guestLoggedIn() : this._(isLoggedIn: false, isGuest: true, isGuestLoggedIn: true);
   const AuthenticationState.loading() : this._(isLoggedIn: false, isGuest: false, isLoading: true);
   const AuthenticationState.error(String message) 
       : this._(isLoggedIn: false, isGuest: false, error: message);
 
   @override
-  List<Object?> get props => [isLoggedIn, isGuest, error, isLoading];
+  List<Object?> get props => [isLoggedIn, isGuest, isGuestLoggedIn, error, isLoading];
 }
 
 // Bloc
 class AuthenticationBloc extends Bloc<AuthenticationEvent, AuthenticationState> {
   AuthenticationBloc() : super(const AuthenticationState.unauthenticated()) {
     
-        on<AuthenticationRegisterRequested>((event, emit) async {
+    on<AuthenticationRegisterRequested>((event, emit) async {
       emit(const AuthenticationState.loading());
       try {
-        // 1. 创建用户
-        final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: event.email,
-          password: event.password,
-        );
-
-        // 2. 设置用户显示名称
-        await userCredential.user?.updateDisplayName(event.name);
+        UserCredential? userCredential;
         
-        // 3. 发送验证邮件
-        await userCredential.user?.sendEmailVerification();
+        try {
+          // 1. Try to create account directly
+          userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+            email: event.email,
+            password: event.password,
+          );
+        } on FirebaseAuthException catch (e) {
+          if (e.code == 'email-already-in-use') {
+            // 2. Email already in use, send password reset to let real owner handle it
+            try {
+              await FirebaseAuth.instance.sendPasswordResetEmail(email: event.email);
+              emit(const AuthenticationState.error('This email is already registered. A password reset email has been sent. Please check your email to access your account.'));
+            } catch (resetError) {
+              emit(const AuthenticationState.error('This email is already registered. Please use a different email address.'));
+            }
+            return;
+          } else {
+            // Other registration errors
+            rethrow;
+          }
+        }
         
-        // 4. 提示用户验证邮箱
-        emit(AuthenticationState.error('Registration successful! Please verify your email address.'));
+        // 3. Handle successful account creation
+        if (userCredential != null) {
+          // Set user display name
+          await userCredential.user?.updateDisplayName(event.name);
+          
+          // Send verification email immediately
+          await userCredential.user?.sendEmailVerification();
+          
+          // Write to Firestore immediately without emailVerified field
+          await FirebaseFirestore.instanceFor(
+            app: FirebaseFirestore.instance.app,
+            databaseId: 'userinfo',
+          ).collection('userinfo').doc(userCredential.user!.uid).set({
+            'name': event.name,
+            'email': event.email,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+          
+          // Log out user, require email verification first
+          await FirebaseAuth.instance.signOut();
+          
+          // Prompt user to verify email
+          emit(const AuthenticationState.error('Registration successful! Please check your email and click the verification link, then return to log in.'));
+        }
         
-        // 5. 登出用户，等待邮箱验证
-        await FirebaseAuth.instance.signOut();
-        
-        // 注意：将 Firestore 写入逻辑移到登录事件中
       } on FirebaseAuthException catch (e) {
-        emit(AuthenticationState.error(e.message ?? "注册失败"));
+        emit(AuthenticationState.error(e.message ?? "Registration failed"));
       } catch (e) {
         emit(AuthenticationState.error(e.toString()));
       }
@@ -118,52 +158,75 @@ class AuthenticationBloc extends Bloc<AuthenticationEvent, AuthenticationState> 
           password: event.password,
         );
         final user = userCredential.user;
+        
+        // Check if email is verified
         if (user != null && !user.emailVerified) {
+          // Resend verification email
           await user.sendEmailVerification();
-          emit(AuthenticationState.error('请先前往邮箱完成验证，已重新发送验证邮件'));
+          emit(const AuthenticationState.error('Please verify your email first. Verification email has been resent, please check your inbox.'));
           await FirebaseAuth.instance.signOut();
           return;
         }
+        
+        // If email is verified, user can proceed to login
+        if (user != null && user.emailVerified) {
+          // No need to update Firestore since we're using Firebase Auth's emailVerified directly
+        }
+        
         emit(const AuthenticationState.authenticated());
       } on FirebaseAuthException catch (e) {
-        emit(AuthenticationState.error(e.message ?? "登录失败"));
+        emit(AuthenticationState.error(e.message ?? "Login failed"));
       } catch (e) {
         emit(AuthenticationState.error(e.toString()));
       }
     });
 
     on<AuthenticationLogoutRequested>((event, emit) async {
+      // Clear guest status when logout is pressed
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('guestLoggedIn');
       await FirebaseAuth.instance.signOut();
       emit(const AuthenticationState.unauthenticated());
     });
 
-    
-
-      on<AuthenticationResetPasswordRequested>((event, emit) async {
+    on<AuthenticationResetPasswordRequested>((event, emit) async {
       emit(const AuthenticationState.loading());
       try {
-        await FirebaseAuth.instance.sendPasswordResetEmail(
-          email: event.email,
-        );
+        // TODO: Implement actual password reset logic
+        await Future.delayed(const Duration(seconds: 1)); // Simulate network request
         emit(const AuthenticationState.unauthenticated());
-      } on FirebaseAuthException catch (e) {
-        switch (e.code) {
-          case 'invalid-email':
-            emit(const AuthenticationState.error('邮箱格式不正确'));
-            break;
-          case 'user-not-found':
-            emit(const AuthenticationState.error('该邮箱未注册'));
-            break;
-          default:
-            emit(AuthenticationState.error(e.message ?? '重置密码失败'));
-        }
       } catch (e) {
         emit(AuthenticationState.error(e.toString()));
       }
     });
 
     on<AuthenticationGuestRequested>((event, emit) async {
+      // First time guest login - goes to preference choose
       emit(const AuthenticationState.guest());
+    });
+
+    on<AuthenticationGuestLoginButtonPressed>((event, emit) async {
+      // Mark guest as logged in and save to SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('guestLoggedIn', true);
+      emit(const AuthenticationState.guestLoggedIn());
+    });
+
+    on<AuthenticationCleanupUnverifiedRequested>((event, emit) async {
+      // Implementation of cleanup logic
+      emit(const AuthenticationState.unauthenticated());
+    });
+
+    on<AuthenticationCheckGuestStatusRequested>((event, emit) async {
+      // Check if user was previously logged in as guest
+      final prefs = await SharedPreferences.getInstance();
+      final isGuestLoggedIn = prefs.getBool('guestLoggedIn') ?? false;
+      
+      if (isGuestLoggedIn) {
+        emit(const AuthenticationState.guestLoggedIn());
+      } else {
+        emit(const AuthenticationState.unauthenticated());
+      }
     });
   }
 }

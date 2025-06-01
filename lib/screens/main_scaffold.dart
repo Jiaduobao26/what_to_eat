@@ -17,12 +17,23 @@ class MainScaffold extends StatefulWidget {
 
 class _MainScaffoldState extends State<MainScaffold> {
   int _selectedIndex = 1; // 默认转盘页
+  List<Map<String, dynamic>>? _restaurants;
 
-  final List<Widget> _pages = const [
-    Lists(),
-    WheelOne(),
-    ProfileScreen(),
-  ];
+  final List<Widget> _pages = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _pages.addAll([
+      Lists(onRestaurantsChanged: (restaurants) {
+        setState(() {
+          _restaurants = restaurants;
+        });
+      }),
+      const WheelOne(),
+      const ProfileScreen(),
+    ]);
+  }
 
   void switchTab(int index) {
     setState(() {
@@ -72,6 +83,7 @@ class _MainScaffoldState extends State<MainScaffold> {
           AppBarActionsWidget(
             location: _selectedIndex == 0 ? '/lists' : _selectedIndex == 1 ? '/wheel' : '/profile',
             onEditWheel: _selectedIndex == 1 ? showEditWheelDialog : null,
+            restaurants: _selectedIndex == 0 ? _restaurants : null,
           ),
         ],
       ),
