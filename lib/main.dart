@@ -6,12 +6,21 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'services/nearby_restaurant_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  // request notification permission
+  if (await Permission.notification.isDenied) {
+    await Permission.notification.request();
+  }
+  // print FCM Token
+  String? token = await FirebaseMessaging.instance.getToken();
+  print('FCM Token: $token');
   runApp(const MyApp());
 }
 
@@ -53,7 +62,7 @@ class _MyRouterAppState extends State<MyRouterApp> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       authBloc.add(AuthenticationCheckGuestStatusRequested());
       
-      // 预加载餐厅数据
+      // preload restaurant data
       final restaurantProvider = context.read<NearbyRestaurantProvider>();
       restaurantProvider.preloadRestaurants();
     });
