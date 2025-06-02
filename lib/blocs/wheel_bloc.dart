@@ -6,11 +6,11 @@ import 'dart:async';
 import 'package:flutter/services.dart' show rootBundle;
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:provider/provider.dart';
-import '../services/nearby_restaurant_provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/restaurant.dart';
 import '../services/local_properties_service.dart';
+import '../repositories/user_preference_repository.dart';
 
 class Cuisine {
   final String name;
@@ -105,6 +105,8 @@ class RemoveOptionEvent extends WheelEvent {
 }
 class AddOptionEvent extends WheelEvent {}
 class SpinWheelEvent extends WheelEvent {}
+class InitializeWithPreferencesEvent extends WheelEvent {}
+class InitializeDefaultEvent extends WheelEvent {}
 class FetchRestaurantEvent extends WheelEvent {
   final String keyword;
   final List<Map<String, dynamic>>? nearbyList;
@@ -120,7 +122,6 @@ class WheelBloc extends Bloc<WheelEvent, WheelState> {
   List<Cuisine> cuisines = [];
   String? _apiKey;
   String? get apiKey => _apiKey;
-
   WheelBloc() : super(WheelState(
     selectedIndex: 0,
     options: []
@@ -156,16 +157,22 @@ class WheelBloc extends Bloc<WheelEvent, WheelState> {
       _spinController?.add(randomIndex);
       emit(state.copyWith(selectedIndex: randomIndex));
     });
+    on<InitializeWithPreferencesEvent>(_onInitializeWithPreferences);
+    on<InitializeDefaultEvent>(_onInitializeDefault);
     on<FetchRestaurantEvent>(_onFetchRestaurant);
-  }
-
-  Future<void> _loadCuisines() async {
+  }  Future<void> _loadCuisines() async {
     final jsonStr = await rootBundle.loadString('assets/cuisines.json');
     final data = json.decode(jsonStr);
     cuisines = (data['cuisines'] as List)
         .map((e) => Cuisine.fromJson(e))
         .toList();
 
+    // Trigger initialization event instead of setting state directly
+    add(InitializeDefaultEvent());
+  }
+
+  Future<void> _onInitializeDefault(
+      InitializeDefaultEvent event, Emitter<WheelState> emit) async {
     // load initial options from local storage
     final localOptions = await loadOptionsFromLocal();
     if (localOptions.isNotEmpty) {
@@ -175,6 +182,73 @@ class WheelBloc extends Bloc<WheelEvent, WheelState> {
       emit(state.copyWith(options: firstThree));
       // save initial options to local storage
       await saveOptionsToLocal(firstThree);
+    }
+  }
+  Future<void> _onInitializeWithPreferences(
+      InitializeWithPreferencesEvent event, Emitter<WheelState> emit) async {
+    try {
+      List<String> preferredCuisines = [];
+      
+      // Check if user is authenticated
+      final user = FirebaseAuth.instance.currentUser;
+      
+      if (user != null) {
+        // Authenticated user - load from Firebase
+        try {
+          final userPreferenceRepository = UserPreferenceRepository();
+          final preference = await userPreferenceRepository.fetchPreference(user.uid);
+          if (preference != null) {
+            preferredCuisines = preference.likedCuisines;
+          }
+        } catch (e) {
+          print('Error loading user preferences from Firebase: $e');
+        }
+      } else {
+        // Guest user - load from SharedPreferences
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          preferredCuisines = prefs.getStringList('guest_liked_cuisines') ?? [];
+        } catch (e) {
+          print('Error loading guest preferences from SharedPreferences: $e');
+        }
+      }
+
+      if (preferredCuisines.isNotEmpty && cuisines.isNotEmpty) {
+        // Filter cuisines based on preferences
+        final preferredOptions = <Option>[];
+        
+        for (final preferredCuisine in preferredCuisines) {
+          final matchingCuisine = cuisines.firstWhere(
+            (cuisine) => cuisine.name.toLowerCase() == preferredCuisine.toLowerCase(),
+            orElse: () => cuisines.firstWhere(
+              (cuisine) => cuisine.keyword.toLowerCase() == preferredCuisine.toLowerCase(),
+              orElse: () => Cuisine(name: preferredCuisine, keyword: preferredCuisine),
+            ),
+          );
+          preferredOptions.add(Option(name: matchingCuisine.name, keyword: matchingCuisine.keyword));
+        }
+
+        if (preferredOptions.isNotEmpty) {
+          emit(state.copyWith(options: preferredOptions));
+          await saveOptionsToLocal(preferredOptions);
+          return;
+        }
+      }
+      
+      // Fallback: use default cuisines if no preferences found
+      if (cuisines.length >= 3) {
+        final firstThree = cuisines.take(3).map((c) => Option(name: c.name, keyword: c.keyword)).toList();
+        emit(state.copyWith(options: firstThree));
+        await saveOptionsToLocal(firstThree);
+      }
+    } catch (e) {
+      print('Error initializing wheel with preferences: $e');
+      // Fallback to default behavior
+      if (cuisines.length >= 3) {
+        final firstThree = cuisines.take(3).map((c) => Option(name: c.name, keyword: c.keyword)).toList();
+        emit(state.copyWith(options: firstThree));
+        await saveOptionsToLocal(firstThree);
+      }
     }
   }
   Future<void> _onFetchRestaurant(

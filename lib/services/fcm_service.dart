@@ -1,5 +1,9 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:app_settings/app_settings.dart';
+import 'dart:io';
 
 class FCMService {
   static final FCMService _instance = FCMService._internal();
@@ -7,11 +11,13 @@ class FCMService {
   FCMService._internal();
 
   late FirebaseMessaging _messaging;
-
   Future<void> initialize() async {
     _messaging = FirebaseMessaging.instance;
     
-    // Request permissions for iOS
+    // Check and request notification permissions for Android
+    await _checkAndRequestNotificationPermissions();
+    
+    // Request FCM permissions
     await _requestPermissions();
     
     // Get FCM token
@@ -19,6 +25,53 @@ class FCMService {
     
     // Configure message handlers
     _configureMessageHandlers();
+  }
+
+  Future<void> _checkAndRequestNotificationPermissions() async {
+    if (Platform.isAndroid) {
+      // 检查通知权限
+      PermissionStatus status = await Permission.notification.status;
+      if (kDebugMode) {
+        print('🔔 Notification permission status: $status');
+      }
+      
+      if (status.isDenied) {
+        // 请求通知权限
+        if (kDebugMode) {
+          print('🔔 Requesting notification permission...');
+        }
+        
+        PermissionStatus result = await Permission.notification.request();
+        if (kDebugMode) {
+          print('🔔 Notification permission result: $result');
+        }
+        
+        if (result.isPermanentlyDenied) {
+          // 如果用户永久拒绝，引导到设置页面
+          if (kDebugMode) {
+            print('🔔 Permission permanently denied, opening app settings');
+          }
+          await _showPermissionDialog();
+        }
+      }
+    }
+  }
+
+  Future<void> _showPermissionDialog() async {
+    // 这里需要在有context的地方调用，暂时只打印日志
+    if (kDebugMode) {
+      print('🔔 Should show permission dialog to user');
+      print('🔔 Opening app settings...');
+    }
+    
+    // 直接打开应用设置
+    try {
+      await AppSettings.openAppSettings();
+    } catch (e) {
+      if (kDebugMode) {
+        print('🔔 Error opening app settings: $e');
+      }
+    }
   }
 
   Future<void> _requestPermissions() async {
@@ -157,7 +210,6 @@ class FCMService {
       }
     }
   }
-
   // Method to get current FCM token
   Future<String?> getToken() async {
     try {
@@ -167,6 +219,50 @@ class FCMService {
         print('❌ Error getting FCM token: $e');
       }
       return null;
+    }
+  }
+
+  // Method to check notification permission status
+  Future<bool> isNotificationPermissionGranted() async {
+    if (Platform.isAndroid) {
+      PermissionStatus status = await Permission.notification.status;
+      return status.isGranted;
+    }
+    return true; // iOS permissions are handled by FCM itself
+  }
+
+  // Method to request notification permissions with user dialog
+  Future<bool> requestNotificationPermissions() async {
+    if (Platform.isAndroid) {
+      PermissionStatus status = await Permission.notification.status;
+      
+      if (status.isDenied) {
+        PermissionStatus result = await Permission.notification.request();
+        if (kDebugMode) {
+          print('🔔 Notification permission request result: $result');
+        }
+        return result.isGranted;
+      } else if (status.isPermanentlyDenied) {
+        // 用户之前永久拒绝了权限，引导到设置
+        if (kDebugMode) {
+          print('🔔 Notification permission permanently denied');
+        }
+        return false;
+      }
+      
+      return status.isGranted;
+    }
+    return true;
+  }
+
+  // Method to open app settings for notification permissions
+  Future<void> openNotificationSettings() async {
+    try {
+      await AppSettings.openAppSettings();
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error opening app settings: $e');
+      }
     }
   }
 }

@@ -5,6 +5,7 @@ import '../../blocs/wheel_bloc.dart';
 import '../../repositories/user_preference_repository.dart';
 import '../../models/preference.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
 
 class EditWheelOptionsDialog extends StatelessWidget {
@@ -163,35 +164,51 @@ class EditWheelOptionsDialog extends StatelessWidget {
       ),
     );
   }
-
   Future<void> _fillWithPreferences(BuildContext context) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        Fluttertoast.showToast(
-          msg: "Please log in to use your preferences.",
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.CENTER,
-          backgroundColor: Colors.black87,
-          textColor: Colors.white,
-          fontSize: 16.0,
-        );
-        return;
-      }
-
-      final repo = UserPreferenceRepository();
-      final preference = await repo.fetchPreference(user.uid);
+      Preference? preference;
       
-      if (preference == null || preference.likedCuisines.isEmpty) {
-        Fluttertoast.showToast(
-          msg: "No liked cuisines found. Please add some preferences first.",
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.CENTER,
-          backgroundColor: Colors.black87,
-          textColor: Colors.white,
-          fontSize: 16.0,
+      if (user == null) {
+        // Guest用户 - 从SharedPreferences加载偏好
+        final prefs = await SharedPreferences.getInstance();
+        final likedCuisines = prefs.getStringList('guest_liked_cuisines') ?? [];
+        final dislikedCuisines = prefs.getStringList('guest_disliked_cuisines') ?? [];
+        
+        if (likedCuisines.isEmpty) {
+          Fluttertoast.showToast(
+            msg: "No liked cuisines found. Please add some preferences first.",
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.CENTER,
+            backgroundColor: Colors.black87,
+            textColor: Colors.white,
+            fontSize: 16.0,
+          );
+          return;
+        }
+        
+        // 创建临时preference对象
+        preference = Preference(
+          userId: 'guest',
+          likedCuisines: likedCuisines,
+          dislikedCuisines: dislikedCuisines,
         );
-        return;
+      } else {
+        // 登录用户 - 从Firebase加载偏好
+        final repo = UserPreferenceRepository();
+        preference = await repo.fetchPreference(user.uid);
+        
+        if (preference == null || preference.likedCuisines.isEmpty) {
+          Fluttertoast.showToast(
+            msg: "No liked cuisines found. Please add some preferences first.",
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.CENTER,
+            backgroundColor: Colors.black87,
+            textColor: Colors.white,
+            fontSize: 16.0,
+          );
+          return;
+        }
       }
 
       final wheelBloc = context.read<WheelBloc>();
@@ -273,8 +290,9 @@ class EditWheelOptionsDialog extends StatelessWidget {
         wheelBloc.add(UpdateOptionEvent(i, newOptions[i].name, newOptions[i].keyword));
       }
       
+      final userType = user == null ? "guest" : "logged-in";
       Fluttertoast.showToast(
-        msg: "Wheel randomly filled with your preferences! (${newOptions.length} options)",
+        msg: "Wheel filled with your $userType preferences! (${newOptions.length} options)",
         toastLength: Toast.LENGTH_SHORT,
         gravity: ToastGravity.CENTER,
         backgroundColor: Colors.green[700],
