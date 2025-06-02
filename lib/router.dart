@@ -13,6 +13,7 @@ import 'screens/register_screen.dart';
 import 'screens/forgetpassword_screen.dart';
 import '../screens/main_scaffold.dart';
 import 'screens/preference_manage_screen.dart';
+import 'screens/fcm_test_screen.dart';
 
 class AppRouter {
   final AuthenticationBloc authBloc;
@@ -69,10 +70,13 @@ class AppRouter {
           builder: (context, state) => MapScreen(
             restaurants: state.extra as List<Map<String, dynamic>>?,
           ),
-        ),
-        GoRoute(
+        ),        GoRoute(
           path: '/profile',
           builder: (context, state) => const ProfileScreen(),
+        ),
+        GoRoute(
+          path: '/fcm-test',
+          builder: (context, state) => const FCMTestScreen(),
         ),
     ],
   );

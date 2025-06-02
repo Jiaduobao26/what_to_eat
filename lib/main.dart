@@ -5,22 +5,34 @@ import 'auth/authentication_bloc.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'services/nearby_restaurant_provider.dart';
+import 'services/fcm_service.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:permission_handler/permission_handler.dart';
+
+// Top-level function to handle background messages
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  print('Handling a background message: ${message.messageId}');
+  print('Background message data: ${message.data}');
+  if (message.notification != null) {
+    print('Background notification title: ${message.notification!.title}');
+    print('Background notification body: ${message.notification!.body}');
+  }
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  // request notification permission
-  if (await Permission.notification.isDenied) {
-    await Permission.notification.request();
-  }
-  // print FCM Token
-  String? token = await FirebaseMessaging.instance.getToken();
-  print('FCM Token: $token');
+  
+  // Set the background message handler early on
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  
+  // Initialize FCM Service
+  await FCMService().initialize();
+  
   runApp(const MyApp());
 }
 

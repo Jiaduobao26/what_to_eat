@@ -198,9 +198,7 @@ class ProfileScreen extends StatelessWidget {
                     SnackBar(content: Text('Navigation error: $e')),
                   );
                 }
-              },
-            ),
-            const SizedBox(height: 16),
+              },            ),            const SizedBox(height: 16),
             _ProfileItem(title: 'History'),
             const SizedBox(height: 16),
             _ProfileItem(title: 'Help'),
