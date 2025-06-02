@@ -10,6 +10,8 @@ import 'services/fcm_service.dart';
 import 'services/installation_id_service.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
+import 'services/in_app_messaging_service.dart';
 
 // Top-level function to handle background messages
 @pragma('vm:entry-point')
@@ -32,6 +34,10 @@ void main() async {
   
   // Initialize FCM Service (outputs FCM token)
   await FCMService().initialize();
+  
+  // Initialize Firebase Analytics & IAM
+  await FirebaseAnalytics.instance.logAppOpen();
+  await InAppMessagingService().initialize();
   
   // Output Installation ID for debugging
   try {
