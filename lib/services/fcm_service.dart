@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:app_settings/app_settings.dart';
 import 'dart:io';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class FCMService {
   static final FCMService _instance = FCMService._internal();
@@ -11,9 +12,27 @@ class FCMService {
   FCMService._internal();
 
   late FirebaseMessaging _messaging;
+  late FlutterLocalNotificationsPlugin _localNotifications;
+
   Future<void> initialize() async {
     _messaging = FirebaseMessaging.instance;
-    
+    _localNotifications = FlutterLocalNotificationsPlugin();
+
+    // Initialize local notifications
+    const AndroidInitializationSettings androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const DarwinInitializationSettings iosInit = DarwinInitializationSettings();
+    const InitializationSettings initSettings = InitializationSettings(android: androidInit, iOS: iosInit);
+    await _localNotifications.initialize(initSettings);
+
+    // Create an Android notification channel
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'high_importance_channel',
+      'Default Notifications',
+      description: 'Channel used for Firebase foreground notifications',
+      importance: Importance.high,
+    );
+    await _localNotifications.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()?.createNotificationChannel(channel);
+
     // Check and request notification permissions for Android
     await _checkAndRequestNotificationPermissions();
     
@@ -132,6 +151,9 @@ class FCMService {
         print('Body: ${message.notification?.body}');
         print('Data: ${message.data}');
       }
+
+      // Display system notification while app is in foreground
+      _showLocalNotification(message);
     });
 
     // Handle background messages when app is opened
@@ -264,5 +286,27 @@ class FCMService {
         print('❌ Error opening app settings: $e');
       }
     }
+  }
+
+  void _showLocalNotification(RemoteMessage message) async {
+    final notification = message.notification;
+    if (notification == null) return;
+
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'high_importance_channel',
+      'Default Notifications',
+      channelDescription: 'Channel used for Firebase foreground notifications',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+    const NotificationDetails details = NotificationDetails(android: androidDetails);
+
+    await _localNotifications.show(
+      notification.hashCode,
+      notification.title,
+      notification.body,
+      details,
+      payload: message.data.toString(),
+    );
   }
 }
