@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:io' show Platform;
 
 class MapPopup extends StatelessWidget {
   final double? latitude;
@@ -18,6 +19,8 @@ class MapPopup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isIOS = Platform.isIOS;
+
     return Container(
       padding: const EdgeInsets.only(
         top: 20,
@@ -37,13 +40,14 @@ class MapPopup extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildOption(
-            title: 'Apple Map',
-            onTap: () {
-              Navigator.pop(context);
-              onAppleMapSelected?.call();
-            },
-          ),
+          if (isIOS)
+            _buildOption(
+              title: 'Apple Map',
+              onTap: () {
+                Navigator.pop(context);
+                onAppleMapSelected?.call();
+              },
+            ),
           _buildOption(
             title: 'Google Map',
             onTap: () {
@@ -89,4 +93,4 @@ class MapPopup extends StatelessWidget {
       ),
     );
   }
-} 
+}

@@ -4,6 +4,7 @@ import '../../blocs/wheel_bloc.dart';
 import '../models/restaurant.dart';
 import '../widgets/dialogs/map_popup.dart';
 import '../widgets/buttons/custom_button_widget.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class RestaurantDetailCard extends StatelessWidget {
   const RestaurantDetailCard({super.key});
@@ -130,13 +131,33 @@ class RestaurantDetailCard extends StatelessWidget {
                   backgroundColor: Colors.transparent,
                   builder:
                       (dialogContext) => MapPopup(
-                        onAppleMapSelected: () {
-                          // 处理 Apple Map 选择
+                        onAppleMapSelected: () async {
+                          // handle Apple Map
                           print('Apple Map selected');
+                          final uri = Uri.parse(
+                            'http://maps.apple.com/?q=${Uri.encodeComponent(restaurant.address)}',
+                          );
+                          if (await canLaunchUrl(uri)) {
+                            await launchUrl(uri, mode: LaunchMode.externalApplication);
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Couldn't open Apple Maps")),
+                            );
+                          }
                         },
-                        onGoogleMapSelected: () {
-                          // 处理 Google Map 选择
+                        onGoogleMapSelected: () async {
+                          // handle Google Map
                           print('Google Map selected');
+                          final uri = Uri.parse(
+                            'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(restaurant.address)}',
+                          );
+                          if (await canLaunchUrl(uri)) {
+                            await launchUrl(uri, mode: LaunchMode.externalApplication);
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Couldn't open Google Maps")),
+                            );
+                          }
                         },
                       ),
                 );
