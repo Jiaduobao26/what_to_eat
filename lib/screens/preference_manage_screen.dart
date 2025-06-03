@@ -356,7 +356,6 @@ class _PreferenceSection extends StatelessWidget {
   final Function(bool) onAddCuisine;
   final Function(String, bool) onRemoveCuisine;
   final Function(String, bool) onRemoveRestaurant;
-
   const _PreferenceSection({
     required this.title,
     required this.isLiked,
@@ -366,7 +365,6 @@ class _PreferenceSection extends StatelessWidget {
     required this.onAddCuisine,
     required this.onRemoveCuisine,
     required this.onRemoveRestaurant,
-    super.key,
   });
 
   @override
@@ -430,20 +428,8 @@ class _PreferenceSection extends StatelessWidget {
                     ),
                     textAlign: TextAlign.center,
                   ),
-                )
-              : Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: cuisines.map((c) => Chip(
-                    label: Text(c),
-                    onDeleted: () => onRemoveCuisine(c, isLiked),
-                    backgroundColor: isLiked ? Colors.green[50] : Colors.red[50],
-                    deleteIconColor: isLiked ? Colors.green[700] : Colors.red[700],
-                    labelStyle: TextStyle(
-                      color: isLiked ? Colors.green[700] : Colors.red[700],
-                      fontWeight: FontWeight.w500,
-                    ),
-                  )).toList(),
+                )              : Column(
+                  children: cuisines.map((c) => _buildCuisineCard(c, isLiked)).toList(),
                 ),
           const SizedBox(height: 12),
           Row(
@@ -507,7 +493,6 @@ class _PreferenceSection extends StatelessWidget {
       ),
     );
   }
-
   Widget _buildRestaurantsDisplay(bool isLiked) {
     final restaurants = isLiked ? preference.likedRestaurants : preference.dislikedRestaurants;
 
@@ -532,19 +517,213 @@ class _PreferenceSection extends StatelessWidget {
       );
     }
 
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: restaurants.map((r) => Chip(
-        label: Text(r.name),
-        onDeleted: () => onRemoveRestaurant(r.id, isLiked),
-        backgroundColor: isLiked ? Colors.green[50] : Colors.red[50],
-        deleteIconColor: isLiked ? Colors.green[700] : Colors.red[700],
-        labelStyle: TextStyle(
-          color: isLiked ? Colors.green[700] : Colors.red[700],
-          fontWeight: FontWeight.w500,
-        ),
-      )).toList(),
+    return Column(
+      children: restaurants.map((r) => _buildRestaurantCard(r, isLiked)).toList(),
     );
   }
-} 
+  Widget _buildRestaurantCard(RestaurantInfo restaurant, bool isLiked) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Row(
+          children: [
+            // Restaurant image placeholder
+            ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                width: 93,
+                height: 93,
+                color: isLiked ? Colors.green[100] : Colors.red[100],
+                child: Icon(
+                  Icons.restaurant,
+                  size: 40,
+                  color: isLiked ? Colors.green[700] : Colors.red[700],
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    restaurant.name,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 16,
+                      fontFamily: 'Roboto',
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 5),
+                  Row(
+                    children: [
+                      Icon(
+                        isLiked ? Icons.favorite : Icons.heart_broken,
+                        size: 14,
+                        color: isLiked ? Colors.green[600] : Colors.red[600],
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        isLiked ? 'Liked' : 'Disliked',
+                        style: TextStyle(
+                          color: isLiked ? Colors.green[600] : Colors.red[600],
+                          fontSize: 12,
+                          fontFamily: 'Roboto',
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const SizedBox(height: 40),
+                IconButton(
+                  icon: Icon(
+                    Icons.delete_outline,
+                    color: Colors.grey[600],
+                    size: 20,
+                  ),
+                  onPressed: () => onRemoveRestaurant(restaurant.id, isLiked),
+                  tooltip: 'Remove restaurant',
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  Widget _buildCuisineCard(String cuisine, bool isLiked) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Row(
+          children: [
+            // Cuisine image
+            ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                width: 93,
+                height: 93,
+                decoration: BoxDecoration(
+                  color: isLiked ? Colors.green[100] : Colors.red[100],
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Image.asset(
+                    'assets/cuisines_images/$cuisine.png',
+                    width: 93,
+                    height: 93,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Icon(
+                      Icons.restaurant_menu,
+                      color: isLiked ? Colors.green[700] : Colors.red[700],
+                      size: 40,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _formatCuisineName(cuisine),
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 16,
+                      fontFamily: 'Roboto',
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 5),
+                  Row(
+                    children: [
+                      Icon(
+                        isLiked ? Icons.favorite : Icons.heart_broken,
+                        size: 14,
+                        color: isLiked ? Colors.green[600] : Colors.red[600],
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        isLiked ? 'Liked' : 'Disliked',
+                        style: TextStyle(
+                          color: isLiked ? Colors.green[600] : Colors.red[600],
+                          fontSize: 12,
+                          fontFamily: 'Roboto',
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const SizedBox(height: 40),
+                IconButton(
+                  icon: Icon(
+                    Icons.delete_outline,
+                    color: Colors.grey[600],
+                    size: 20,
+                  ),
+                  onPressed: () => onRemoveCuisine(cuisine, isLiked),
+                  tooltip: 'Remove cuisine',
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatCuisineName(String cuisine) {
+    // Convert cuisine keyword to display name
+    final displayMap = {
+      'chinese': 'Chinese',
+      'japanese': 'Japanese',
+      'korean': 'Korean',
+      'italian': 'Italian',
+      'mexican': 'Mexican',
+      'thai': 'Thai',
+      'vietnamese': 'Vietnamese',
+      'indian': 'Indian',
+      'french': 'French',
+      'american': 'American',
+      'mediterranean': 'Mediterranean',
+      'greek': 'Greek',
+      'spanish': 'Spanish',
+      'turkish': 'Turkish',
+      'lebanese': 'Lebanese',
+      'african': 'African',
+      'brazilian': 'Brazilian',
+      'cuban': 'Cuban',
+      'german': 'German',
+      'halal': 'Halal',
+    };
+    
+    return displayMap[cuisine.toLowerCase()] ?? cuisine.split('_').map((word) => 
+      word[0].toUpperCase() + word.substring(1).toLowerCase()).join(' ');
+  }
+}

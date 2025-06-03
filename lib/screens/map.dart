@@ -6,8 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import '../widgets/dialogs/map_popup.dart';
 import '../widgets/dialogs/list_dialog.dart';
-import 'package:go_router/go_router.dart';
-import '../screens/main_scaffold.dart';
+import '../utils/distance_utils.dart';
 
 class MapScreen extends StatelessWidget {
   final List<Map<String, dynamic>>? restaurants;
@@ -224,13 +223,16 @@ class _MapScreenViewState extends State<MapScreenView> {
                         ),
                       ),
                     ),
-                    Expanded(
-                      child: ListView.builder(
+                    Expanded(                      child: ListView.builder(
                         padding: const EdgeInsets.all(10),
                         itemCount: _restaurants.length,
                         itemBuilder: (context, index) => GestureDetector(
                           onTap: () => _moveToRestaurant(_restaurants[index]),
-                          child: _GoogleRestaurantCard(info: _restaurants[index]),
+                          child: _GoogleRestaurantCard(
+                            info: _restaurants[index],
+                            userLat: lat,
+                            userLng: lng,
+                          ),
                         ),
                       ),
                     ),
@@ -242,14 +244,24 @@ class _MapScreenViewState extends State<MapScreenView> {
 
 class _GoogleRestaurantCard extends StatelessWidget {
   final Map<String, dynamic> info;
-  const _GoogleRestaurantCard({required this.info});
-
+  final double userLat;
+  final double userLng;
+  
+  const _GoogleRestaurantCard({
+    required this.info,
+    required this.userLat,
+    required this.userLng,
+  });
   @override
   Widget build(BuildContext context) {
     final name = info['name'] ?? '';
     final rating = info['rating']?.toString() ?? '-';
     final address = info['vicinity'] ?? '';
     final types = info['types'] as List<dynamic>? ?? [];
+    
+    // Get restaurant location
+    final restaurantLat = info['geometry']?['location']?['lat'];
+    final restaurantLng = info['geometry']?['location']?['lng'];
     
     // 尝试从餐厅名称推断菜系
     final cuisineFromName = _getCuisineFromName(name);
@@ -330,8 +342,7 @@ class _GoogleRestaurantCard extends StatelessWidget {
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                  ),
-                  if (cuisineTypes.isNotEmpty) ...[
+                  ),                  if (cuisineTypes.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Row(
                       children: [
@@ -352,6 +363,33 @@ class _GoogleRestaurantCard extends StatelessWidget {
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],                  // Distance display
+                  if (restaurantLat != null && restaurantLng != null) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.location_on,
+                          size: 14,
+                          color: Color(0xFF6B7280),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          DistanceUtils.calculateDistance(
+                            userLat,
+                            userLng,
+                            restaurantLat.toDouble(),
+                            restaurantLng.toDouble(),
+                          ),
+                          style: const TextStyle(
+                            color: Color(0xFF6B7280),
+                            fontSize: 11,
+                            fontFamily: 'Roboto',
+                            fontWeight: FontWeight.w400,
                           ),
                         ),
                       ],
