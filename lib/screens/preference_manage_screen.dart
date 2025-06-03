@@ -22,6 +22,7 @@ class _PreferenceManageScreenState extends State<PreferenceManageScreen> {
   final _repo = UserPreferenceRepository();
   final _cuisineController = TextEditingController();
   List<Map<String, dynamic>> _allCuisines = [];
+  bool _showLiked = true; // 新增：切换喜欢/不喜欢
 
   @override
   void initState() {
@@ -244,7 +245,9 @@ class _PreferenceManageScreenState extends State<PreferenceManageScreen> {
                 ],
               ),
               const SizedBox(height: 24),
-              // 显示完整的偏好管理界面
+              // 新增：切换栏
+              _buildToggleBar(),
+              const SizedBox(height: 16),
               Expanded(
                 child: _buildPreferenceManagementContent(),
               ),
@@ -302,6 +305,9 @@ class _PreferenceManageScreenState extends State<PreferenceManageScreen> {
               ],
             ),
             const SizedBox(height: 32),
+            // 新增：切换栏
+            _buildToggleBar(),
+            const SizedBox(height: 16),
             Expanded(
               child: _buildPreferenceManagementContent(),
             ),
@@ -311,36 +317,106 @@ class _PreferenceManageScreenState extends State<PreferenceManageScreen> {
     );
   }
 
+  // 新增：切换栏Widget
+  Widget _buildToggleBar() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Expanded(
+          child: GestureDetector(
+            onTap: () {
+              setState(() {
+                _showLiked = true;
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: _showLiked ? const Color(0xFFE95322) : Colors.white,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  bottomLeft: Radius.circular(16),
+                ),
+                border: Border.all(color: const Color(0xFFE95322)),
+              ),
+              child: Center(
+                child: Text(
+                  'Liked',
+                  style: TextStyle(
+                    color: _showLiked ? Colors.white : const Color(0xFFE95322),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: GestureDetector(
+            onTap: () {
+              setState(() {
+                _showLiked = false;
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: !_showLiked ? const Color(0xFFE95322) : Colors.white,
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(16),
+                  bottomRight: Radius.circular(16),
+                ),
+                border: Border.all(color: const Color(0xFFE95322)),
+              ),
+              child: Center(
+                child: Text(
+                  'Disliked',
+                  style: TextStyle(
+                    color: !_showLiked ? Colors.white : const Color(0xFFE95322),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 修改：只显示当前选中的部分
   Widget _buildPreferenceManagementContent() {
     if (_preference == null) {
       return const Center(child: CircularProgressIndicator());
     }
-    
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PreferenceSection(
-            title: 'Liked',
-            isLiked: true,
-            preference: _preference!,
-            allCuisines: _allCuisines,
-            cuisineController: _cuisineController,
-            onAddCuisine: _addCuisine,
-            onRemoveCuisine: _removeCuisine,
-            onRemoveRestaurant: _removeRestaurant,
-          ),
-          const SizedBox(height: 24),
-          _PreferenceSection(
-            title: 'Disliked',
-            isLiked: false,
-            preference: _preference!,
-            allCuisines: _allCuisines,
-            cuisineController: _cuisineController,
-            onAddCuisine: _addCuisine,
-            onRemoveCuisine: _removeCuisine,
-            onRemoveRestaurant: _removeRestaurant,
-          ),
+          if (_showLiked)
+            _PreferenceSection(
+              title: 'Liked',
+              isLiked: true,
+              preference: _preference!,
+              allCuisines: _allCuisines,
+              cuisineController: _cuisineController,
+              onAddCuisine: _addCuisine,
+              onRemoveCuisine: _removeCuisine,
+              onRemoveRestaurant: _removeRestaurant,
+            ),
+          if (!_showLiked)
+            _PreferenceSection(
+              title: 'Disliked',
+              isLiked: false,
+              preference: _preference!,
+              allCuisines: _allCuisines,
+              cuisineController: _cuisineController,
+              onAddCuisine: _addCuisine,
+              onRemoveCuisine: _removeCuisine,
+              onRemoveRestaurant: _removeRestaurant,
+            ),
         ],
       ),
     );

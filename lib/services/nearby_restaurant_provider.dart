@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:geolocator/geolocator.dart';
+import '../services/local_properties_service.dart';
 
 class NearbyRestaurantProvider extends ChangeNotifier {
   List<Map<String, dynamic>> _restaurants = [];
   bool _isLoading = false;
   bool _hasLoaded = false;
   String? _error;
+  String? _apiKey;
   
-  static const String apiKey = 'AIzaSyBUUuCGzKK9z-yY2gHz1kvvTzhIufEkQZc';
   double _lat = 37.3467; // Santa Clara, CA 95051 默认位置
   double _lng = -121.9842;
 
@@ -78,7 +79,13 @@ class NearbyRestaurantProvider extends ChangeNotifier {
   
   Future<void> _fetchNearbyRestaurants() async {
     try {
-      final url = 'https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=$_lat,$_lng&radius=2000&type=restaurant&key=$apiKey&language=en';
+      if (_apiKey == null) {
+        _apiKey = await LocalPropertiesService.getGoogleMapsApiKey();
+      }
+      if (_apiKey == null) {
+        throw Exception('API key not available');
+      }
+      final url = 'https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=$_lat,$_lng&radius=2000&type=restaurant&key=$_apiKey&language=en';
       final response = await http.get(Uri.parse(url));
       
       if (response.statusCode == 200) {
@@ -105,4 +112,4 @@ class NearbyRestaurantProvider extends ChangeNotifier {
     _error = null;
     notifyListeners();
   }
-} 
+}

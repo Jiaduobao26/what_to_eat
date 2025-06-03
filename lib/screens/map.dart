@@ -4,9 +4,11 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../widgets/dialogs/map_popup.dart';
 import '../widgets/dialogs/list_dialog.dart';
 import '../utils/distance_utils.dart';
+import '../services/local_properties_service.dart';
 
 class MapScreen extends StatelessWidget {
   final List<Map<String, dynamic>>? restaurants;
@@ -32,9 +34,8 @@ class _MapScreenViewState extends State<MapScreenView> {
   List<Map<String, dynamic>> _restaurants = [];
   bool _loading = true;
   String? _error;
-  Set<Marker> _markers = {};
-  GoogleMapController? _mapController;
-  static const String apiKey = 'AIzaSyBUUuCGzKK9z-yY2gHz1kvvTzhIufEkQZc';
+  Set<Marker> _markers = {};  GoogleMapController? _mapController;
+  String? _apiKey;
   // Santa Clara, CA 95051
   double lat = 37.3467;
   double lng = -121.9842;
@@ -45,7 +46,8 @@ class _MapScreenViewState extends State<MapScreenView> {
   @override
   void initState() {
     super.initState();
-    
+    // Load API key
+    _loadApiKey();
     // 如果有传入的餐厅数据，直接使用
     if (widget.restaurants != null && widget.restaurants!.isNotEmpty) {
       setState(() {
@@ -57,6 +59,13 @@ class _MapScreenViewState extends State<MapScreenView> {
       // 没有传入数据时才获取位置并加载
       getCurrentLocation();
     }
+  }
+
+  Future<void> _loadApiKey() async {
+    final apiKey = await LocalPropertiesService.getGoogleMapsApiKey();
+    setState(() {
+      _apiKey = apiKey;
+    });
   }
 
   @override
@@ -95,15 +104,19 @@ class _MapScreenViewState extends State<MapScreenView> {
   Future<void> fetchNearbyRestaurants() async {
     // 检查组件是否仍然挂载
     if (!mounted || _disposed) return;
-    
     setState(() {
       _loading = true;
       _error = null;
     });
-    
     try {
+      if (_apiKey == null) {
+        await _loadApiKey();
+      }
+      if (_apiKey == null) {
+        throw Exception('API key not available');
+      }
       final url =
-          'https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=$lat,$lng&radius=2000&type=restaurant&key=$apiKey&language=en';
+          'https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=$lat,$lng&radius=2000&type=restaurant&key=$_apiKey&language=en';
       final response = await http.get(Uri.parse(url));
       
       // 检查组件是否仍然挂载
@@ -232,6 +245,7 @@ class _MapScreenViewState extends State<MapScreenView> {
                             info: _restaurants[index],
                             userLat: lat,
                             userLng: lng,
+                            apiKey: _apiKey,
                           ),
                         ),
                       ),
@@ -246,11 +260,12 @@ class _GoogleRestaurantCard extends StatelessWidget {
   final Map<String, dynamic> info;
   final double userLat;
   final double userLng;
-  
+  final String? apiKey;
   const _GoogleRestaurantCard({
     required this.info,
     required this.userLat,
     required this.userLng,
+    this.apiKey,
   });
   @override
   Widget build(BuildContext context) {
@@ -276,8 +291,8 @@ class _GoogleRestaurantCard extends StatelessWidget {
     final photoRef = (info['photos'] != null && info['photos'].isNotEmpty)
         ? info['photos'][0]['photo_reference']
         : null;
-    final imageUrl = photoRef != null
-        ? 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=$photoRef&key=${_MapScreenViewState.apiKey}'
+    final imageUrl = photoRef != null && apiKey != null
+        ? 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=$photoRef&key=$apiKey'
         : null;
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -411,7 +426,7 @@ class _GoogleRestaurantCard extends StatelessWidget {
                     final lat = info['geometry']?['location']?['lat'];
                     final lng = info['geometry']?['location']?['lng'];
                     final name = info['name'] ?? 'Restaurant';
-                    
+                    final address = info['vicinity'] ?? '';
                     if (lat != null && lng != null) {
                       showModalBottomSheet(
                         context: context,
@@ -420,11 +435,25 @@ class _GoogleRestaurantCard extends StatelessWidget {
                           latitude: lat.toDouble(),
                           longitude: lng.toDouble(),
                           restaurantName: name,
-                          onAppleMapSelected: () {
-                            print('Apple Map selected for: $name');
+                          onAppleMapSelected: () async {
+                            final url = 'http://maps.apple.com/?q=' + Uri.encodeComponent('$name $address');
+                            if (await canLaunchUrl(Uri.parse(url))) {
+                              await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("Couldn't open Apple Maps")),
+                              );
+                            }
                           },
-                          onGoogleMapSelected: () {
-                            print('Google Map selected for: $name');
+                          onGoogleMapSelected: () async {
+                            final url = 'https://www.google.com/maps/search/?api=1&query=' + Uri.encodeComponent('$name $address');
+                            if (await canLaunchUrl(Uri.parse(url))) {
+                              await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("Couldn't open Google Maps")),
+                              );
+                            }
                           },
                         ),
                       );

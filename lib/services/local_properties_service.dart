@@ -7,7 +7,7 @@ class LocalPropertiesService {
       final content = await rootBundle.loadString('assets/local.properties');
       final lines = content.split('\n');
       for (var line in lines) {
-        if (line.startsWith('API_KEY=')) {
+        if (line.startsWith('GOOGLE_MAPS_API_KEY=')) {
           return line.split('=')[1].trim();
         }
       }

@@ -14,6 +14,7 @@ import '../services/nearby_restaurant_provider.dart';
 import 'package:provider/provider.dart';
 import '../utils/distance_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/local_properties_service.dart';
 
 class Lists extends StatelessWidget {
   final Function(List<Map<String, dynamic>>)? onRestaurantsChanged;
@@ -48,24 +49,25 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
   bool _isLoadingMore = false;
   bool _hasLoaded = false;
   NearbyRestaurantProvider? _provider; // 保存Provider引用
-  
-  // Distance filter variables
+    // Distance filter variables
   double _selectedDistance = 10.0; // Default 10 miles
   final TextEditingController _customDistanceController = TextEditingController();
   final List<double> _presetDistances = [2.0, 5.0, 10.0]; // Preset distance options
 
-  // 你可以将API_KEY放到安全的地方
-  static const String apiKey = 'AIzaSyBUUuCGzKK9z-yY2gHz1kvvTzhIufEkQZc';
+  // API key from configuration file
+  String? _apiKey;
   // Santa Clara, CA 95051
   double lat = 37.3467;
   double lng = -121.9842;
 
   @override
   bool get wantKeepAlive => true;
-
   @override
   void initState() {
     super.initState();
+    
+    // Load API key from configuration
+    _loadApiKey();
     
     // 设置滚动监听器
     _scrollController.addListener(() {
@@ -103,7 +105,6 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
       _provider!.addListener(_onProviderDataChanged);
     });
   }
-
   @override
   void dispose() {
     _scrollController.dispose();
@@ -111,6 +112,13 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
     // 使用保存的Provider引用，安全地移除listener
     _provider?.removeListener(_onProviderDataChanged);
     super.dispose();
+  }
+
+  Future<void> _loadApiKey() async {
+    final apiKey = await LocalPropertiesService.getGoogleMapsApiKey();
+    setState(() {
+      _apiKey = apiKey;
+    });
   }
 
   void _onProviderDataChanged() {
@@ -205,9 +213,11 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
                           controller: _scrollController,
                           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
                           itemCount: _restaurants.length + (_nextPageToken != null ? 1 : 0),
-                          itemBuilder: (context, index) {
-                            if (index < _restaurants.length) {
-                              return _GoogleRestaurantCard(info: _restaurants[index]);
+                          itemBuilder: (context, index) {                            if (index < _restaurants.length) {
+                              return _GoogleRestaurantCard(
+                                info: _restaurants[index],
+                                apiKey: _apiKey,
+                              );
                             } else {
                               // 加载更多loading
                               return const Padding(
@@ -235,10 +245,18 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
       if (!loadMore) _loading = true;
       _error = null;
       if (loadMore) _isLoadingMore = true;
-    });
-    try {
+    });    try {
+      // Ensure API key is loaded before making the request
+      if (_apiKey == null) {
+        await _loadApiKey();
+      }
+      
+      if (_apiKey == null) {
+        throw Exception('API key not available');
+      }
+      
       String url =
-          'https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=$lat,$lng&radius=2000&type=restaurant&key=$apiKey&language=en';
+          'https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=$lat,$lng&radius=2000&type=restaurant&key=$_apiKey&language=en';
       if (loadMore && _nextPageToken != null) {
         url += '&pagetoken=$_nextPageToken';
       }
@@ -539,7 +557,12 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
 
 class _GoogleRestaurantCard extends StatelessWidget {
   final Map<String, dynamic> info;
-  const _GoogleRestaurantCard({required this.info});
+  final String? apiKey;
+  
+  const _GoogleRestaurantCard({
+    required this.info,
+    this.apiKey,
+  });
 
   Future<bool> _isLikedRestaurant(String userId, String placeId) async {
     final user = FirebaseAuth.instance.currentUser;
@@ -732,12 +755,10 @@ class _GoogleRestaurantCard extends StatelessWidget {
       if (cuisineFromName.isNotEmpty) cuisineFromName,
       if (cuisineFromTypes.isNotEmpty) cuisineFromTypes,
     ].take(2).join(' • ');
-    
-    final photoRef = (info['photos'] != null && info['photos'].isNotEmpty)
+      final photoRef = (info['photos'] != null && info['photos'].isNotEmpty)
         ? info['photos'][0]['photo_reference']
-        : null;
-    final imageUrl = photoRef != null
-        ? 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=$photoRef&key=${_ListsViewState.apiKey}'
+        : null;    final imageUrl = photoRef != null && apiKey != null
+        ? 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=$photoRef&key=$apiKey'
         : null;
 
     return Card(
