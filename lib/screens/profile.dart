@@ -165,8 +165,8 @@ class ProfileScreen extends StatelessWidget {
               ),
             ] else ...[
               _ProfileHeader(
-                name: 'Anonymous',
-                email: 'anonymous@email.com',
+                name: 'Guest',
+                email: 'guest@email.com',
               ),
             ],
             const SizedBox(height: 32),
@@ -306,7 +306,7 @@ class _ProfileHeader extends StatelessWidget {
           child: const SizedBox(
             width: 91,
             height: 100,
-            child: Icon(Icons.image, size: 60, color: Colors.grey),
+            child: Icon(Icons.account_circle, size: 90, color: Color(0xFFBDBDBD)),
           ),
         ),
         const SizedBox(width: 24),
