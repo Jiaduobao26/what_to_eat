@@ -370,20 +370,34 @@ class _GoogleRestaurantCard extends StatelessWidget {
                     child: const Icon(Icons.navigation, color: Color(0xFFE95322)),
                   ),
                   onPressed: () {
-                    showModalBottomSheet(
-                      context: context,
-                      backgroundColor: Colors.transparent,
-                      builder: (context) => MapPopup(
-                        onAppleMapSelected: () {
-                          // 处理 Apple Map 选择
-                          print('Apple Map selected');
-                        },
-                        onGoogleMapSelected: () {
-                          // 处理 Google Map 选择
-                          print('Google Map selected');
-                        },
-                      ),
-                    );
+                    final lat = info['geometry']?['location']?['lat'];
+                    final lng = info['geometry']?['location']?['lng'];
+                    final name = info['name'] ?? 'Restaurant';
+                    
+                    if (lat != null && lng != null) {
+                      showModalBottomSheet(
+                        context: context,
+                        backgroundColor: Colors.transparent,
+                        builder: (context) => MapPopup(
+                          latitude: lat.toDouble(),
+                          longitude: lng.toDouble(),
+                          restaurantName: name,
+                          onAppleMapSelected: () {
+                            print('Apple Map selected for: $name');
+                          },
+                          onGoogleMapSelected: () {
+                            print('Google Map selected for: $name');
+                          },
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Location information not available'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
                   },
                 ),
                 IconButton(

@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 
 class MapPopup extends StatelessWidget {
+  final double? latitude;
+  final double? longitude;
+  final String? restaurantName;
   final VoidCallback? onAppleMapSelected;
   final VoidCallback? onGoogleMapSelected;
 
   const MapPopup({
     super.key,
+    this.latitude,
+    this.longitude,
+    this.restaurantName,
     this.onAppleMapSelected,
     this.onGoogleMapSelected,
   });
