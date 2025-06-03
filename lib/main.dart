@@ -10,8 +10,10 @@ import 'services/fcm_service.dart';
 import 'services/installation_id_service.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
+import 'services/in_app_messaging_service.dart';
 
-// Top-level function to handle background messages
+/// Top-level function to handle background FCM messages
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -32,6 +34,10 @@ void main() async {
   
   // Initialize FCM Service (outputs FCM token)
   await FCMService().initialize();
+  
+  // Initialize Firebase Analytics & IAM
+  await FirebaseAnalytics.instance.logAppOpen();
+  await InAppMessagingService().initialize();
   
   // Output Installation ID for debugging
   try {
@@ -65,7 +71,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
-
+/// 我们把启动动画和路由放到同一个 StatefulWidget 里
 class MyRouterApp extends StatefulWidget {
   const MyRouterApp({super.key});
 
@@ -73,15 +79,42 @@ class MyRouterApp extends StatefulWidget {
   State<MyRouterApp> createState() => _MyRouterAppState();
 }
 
-class _MyRouterAppState extends State<MyRouterApp> {
-  late final AppRouter _appRouter; // singleton router
+class _MyRouterAppState extends State<MyRouterApp>
+    with SingleTickerProviderStateMixin {
+  late final AppRouter _appRouter;
+  late final AnimationController _animController;
+  late final Animation<double> _logoScale;
+  bool _showSplash = true; // 用来控制是否展示启动页
 
   @override
   void initState() {
     super.initState();
     final authBloc = context.read<AuthenticationBloc>();
-    _appRouter = AppRouter(authBloc: authBloc); // pass the AuthenticationBloc to AppRouter
-      // Check guest status on app startup
+    _appRouter = AppRouter(authBloc: authBloc);
+
+    // 2. 创建动画控制器：持续 2 秒的缩放
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    );
+    _logoScale = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeOutBack),
+    );
+
+    // 3. 监听动画完成事件：等动画跑完再隐藏启动页
+    _animController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        // 动画结束后保留 500ms 缓冲，然后隐藏 splash
+        Future.delayed(const Duration(milliseconds: 500), () {
+          setState(() => _showSplash = false);
+        });
+      }
+    });
+
+    // 4. 动画开始
+    _animController.forward();
+
+    // 5. 剩余初始化逻辑：注册 BLoC 观察，预加载数据，检查通知权限
     WidgetsBinding.instance.addPostFrameCallback((_) {
       authBloc.add(AuthenticationCheckGuestStatusRequested());
       
@@ -98,6 +131,13 @@ class _MyRouterAppState extends State<MyRouterApp> {
     });
   }
 
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
+  }
+
+  /// 弹出通知权限的对话框
   Future<void> _checkNotificationPermissions() async {
     try {
       bool isGranted = await FCMService().isNotificationPermissionGranted();
@@ -184,6 +224,24 @@ class _MyRouterAppState extends State<MyRouterApp> {
 
   @override
   Widget build(BuildContext context) {
+    // 如果仍然要显示启动动画，就返回一个单独的 MaterialApp 包裹缩放动画
+    if (_showSplash) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          backgroundColor: Colors.white,
+          body: Center(
+            child: ScaleTransition(
+              scale: _logoScale,
+              // 这里把 FlutterLogo 换成你自己的 “开机图” 即可
+              child: Image.asset('assets/icon/app_icon.png'),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // 动画结束后，渲染你原本的路由结构
     return BlocListener<AuthenticationBloc, AuthenticationState>(
       listenWhen: (previous, current) => previous.isLoggedIn != current.isLoggedIn,
       listener: (context, state) {
