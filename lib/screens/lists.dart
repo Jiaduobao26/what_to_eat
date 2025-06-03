@@ -960,6 +960,11 @@ class _GoogleRestaurantCard extends StatelessWidget {
                               final restaurantInfo = pref_models.RestaurantInfo(
                                 id: info['place_id'],
                                 name: info['name'],
+                                address: info['vicinity'],
+                                lat: info['geometry']?['location']?['lat']?.toDouble(),
+                                lng: info['geometry']?['location']?['lng']?.toDouble(),
+                                photoRef: (info['photos'] != null && info['photos'].isNotEmpty) ? info['photos'][0]['photo_reference'] : null,
+                                types: (info['types'] as List?)?.map((e) => e.toString()).toList(),
                               );
                               
                               // 添加到喜欢列表，从不喜欢列表移除
@@ -988,6 +993,11 @@ class _GoogleRestaurantCard extends StatelessWidget {
                               final restaurantInfo = pref_models.RestaurantInfo(
                                 id: info['place_id'],
                                 name: info['name'],
+                                address: info['vicinity'],
+                                lat: info['geometry']?['location']?['lat']?.toDouble(),
+                                lng: info['geometry']?['location']?['lng']?.toDouble(),
+                                photoRef: (info['photos'] != null && info['photos'].isNotEmpty) ? info['photos'][0]['photo_reference'] : null,
+                                types: (info['types'] as List?)?.map((e) => e.toString()).toList(),
                               );
                               
                               // Get current preferences
@@ -1048,6 +1058,11 @@ class _GoogleRestaurantCard extends StatelessWidget {
                               final restaurantInfo = pref_models.RestaurantInfo(
                                 id: info['place_id'],
                                 name: info['name'],
+                                address: info['vicinity'],
+                                lat: info['geometry']?['location']?['lat']?.toDouble(),
+                                lng: info['geometry']?['location']?['lng']?.toDouble(),
+                                photoRef: (info['photos'] != null && info['photos'].isNotEmpty) ? info['photos'][0]['photo_reference'] : null,
+                                types: (info['types'] as List?)?.map((e) => e.toString()).toList(),
                               );
                               
                               // 添加到不喜欢列表，从喜欢列表移除
@@ -1076,6 +1091,11 @@ class _GoogleRestaurantCard extends StatelessWidget {
                               final restaurantInfo = pref_models.RestaurantInfo(
                                 id: info['place_id'],
                                 name: info['name'],
+                                address: info['vicinity'],
+                                lat: info['geometry']?['location']?['lat']?.toDouble(),
+                                lng: info['geometry']?['location']?['lng']?.toDouble(),
+                                photoRef: (info['photos'] != null && info['photos'].isNotEmpty) ? info['photos'][0]['photo_reference'] : null,
+                                types: (info['types'] as List?)?.map((e) => e.toString()).toList(),
                               );
                               
                               // Get current preferences

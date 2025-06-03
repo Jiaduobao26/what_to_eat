@@ -1,16 +1,31 @@
 class RestaurantInfo {
   final String id;
   final String name;
+  final String? address;
+  final double? lat;
+  final double? lng;
+  final String? photoRef;
+  final List<String>? types;
 
   RestaurantInfo({
     required this.id,
     required this.name,
+    this.address,
+    this.lat,
+    this.lng,
+    this.photoRef,
+    this.types,
   });
 
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'name': name,
+      'address': address,
+      'lat': lat,
+      'lng': lng,
+      'photoRef': photoRef,
+      'types': types,
     };
   }
 
@@ -18,6 +33,11 @@ class RestaurantInfo {
     return RestaurantInfo(
       id: map['id'] ?? '',
       name: map['name'] ?? '',
+      address: map['address'],
+      lat: map['lat'] != null ? (map['lat'] as num).toDouble() : null,
+      lng: map['lng'] != null ? (map['lng'] as num).toDouble() : null,
+      photoRef: map['photoRef'],
+      types: map['types'] != null ? List<String>.from(map['types']) : null,
     );
   }
 }
