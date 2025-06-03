@@ -520,8 +520,7 @@ class _PreferenceSection extends StatelessWidget {
     return Column(
       children: restaurants.map((r) => _buildRestaurantCard(r, isLiked)).toList(),
     );
-  }
-  Widget _buildRestaurantCard(RestaurantInfo restaurant, bool isLiked) {
+  }  Widget _buildRestaurantCard(RestaurantInfo restaurant, bool isLiked) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -529,18 +528,12 @@ class _PreferenceSection extends StatelessWidget {
         padding: const EdgeInsets.all(10),
         child: Row(
           children: [
-            // Restaurant image placeholder
             ClipRRect(
               borderRadius: BorderRadius.circular(20),
-              child: Container(
+              child: const SizedBox(
                 width: 93,
                 height: 93,
-                color: isLiked ? Colors.green[100] : Colors.red[100],
-                child: Icon(
-                  Icons.restaurant,
-                  size: 40,
-                  color: isLiked ? Colors.green[700] : Colors.red[700],
-                ),
+                child: Icon(Icons.restaurant, size: 60, color: Colors.grey),
               ),
             ),
             const SizedBox(width: 10),
@@ -556,8 +549,6 @@ class _PreferenceSection extends StatelessWidget {
                       fontFamily: 'Roboto',
                       fontWeight: FontWeight.w500,
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 5),
                   Row(
@@ -565,14 +556,14 @@ class _PreferenceSection extends StatelessWidget {
                       Icon(
                         isLiked ? Icons.favorite : Icons.heart_broken,
                         size: 14,
-                        color: isLiked ? Colors.green[600] : Colors.red[600],
+                        color: isLiked ? const Color(0xFFE95322) : Colors.grey,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         isLiked ? 'Liked' : 'Disliked',
                         style: TextStyle(
-                          color: isLiked ? Colors.green[600] : Colors.red[600],
-                          fontSize: 12,
+                          color: isLiked ? const Color(0xFFE95322) : Colors.grey,
+                          fontSize: 11,
                           fontFamily: 'Roboto',
                           fontWeight: FontWeight.w500,
                         ),
@@ -585,16 +576,9 @@ class _PreferenceSection extends StatelessWidget {
             const SizedBox(width: 10),
             Column(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const SizedBox(height: 40),
-                IconButton(
-                  icon: Icon(
-                    Icons.delete_outline,
-                    color: Colors.grey[600],
-                    size: 20,
-                  ),
+              children: [                IconButton(
+                  icon: const Icon(Icons.delete, color: Color(0xFF391713)),
                   onPressed: () => onRemoveRestaurant(restaurant.id, isLiked),
-                  tooltip: 'Remove restaurant',
                 ),
               ],
             ),
@@ -602,8 +586,7 @@ class _PreferenceSection extends StatelessWidget {
         ),
       ),
     );
-  }
-  Widget _buildCuisineCard(String cuisine, bool isLiked) {
+  }  Widget _buildCuisineCard(String cuisine, bool isLiked) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -611,29 +594,17 @@ class _PreferenceSection extends StatelessWidget {
         padding: const EdgeInsets.all(10),
         child: Row(
           children: [
-            // Cuisine image
             ClipRRect(
               borderRadius: BorderRadius.circular(20),
-              child: Container(
+              child: Image.asset(
+                'assets/cuisines_images/$cuisine.png',
                 width: 93,
                 height: 93,
-                decoration: BoxDecoration(
-                  color: isLiked ? Colors.green[100] : Colors.red[100],
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: Image.asset(
-                    'assets/cuisines_images/$cuisine.png',
-                    width: 93,
-                    height: 93,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Icon(
-                      Icons.restaurant_menu,
-                      color: isLiked ? Colors.green[700] : Colors.red[700],
-                      size: 40,
-                    ),
-                  ),
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => const SizedBox(
+                  width: 93,
+                  height: 93,
+                  child: Icon(Icons.restaurant_menu, size: 60, color: Colors.grey),
                 ),
               ),
             ),
@@ -650,23 +621,41 @@ class _PreferenceSection extends StatelessWidget {
                       fontFamily: 'Roboto',
                       fontWeight: FontWeight.w500,
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 5),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.restaurant_menu,
+                        size: 14,
+                        color: Color(0xFFE95322),
+                      ),
+                      const SizedBox(width: 4),
+                      const Text(
+                        'Cuisine',
+                        style: TextStyle(
+                          color: Color(0xFFE95322),
+                          fontSize: 11,
+                          fontFamily: 'Roboto',
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
                   Row(
                     children: [
                       Icon(
                         isLiked ? Icons.favorite : Icons.heart_broken,
                         size: 14,
-                        color: isLiked ? Colors.green[600] : Colors.red[600],
+                        color: isLiked ? const Color(0xFFE95322) : Colors.grey,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         isLiked ? 'Liked' : 'Disliked',
                         style: TextStyle(
-                          color: isLiked ? Colors.green[600] : Colors.red[600],
-                          fontSize: 12,
+                          color: isLiked ? const Color(0xFFE95322) : Colors.grey,
+                          fontSize: 11,
                           fontFamily: 'Roboto',
                           fontWeight: FontWeight.w500,
                         ),
@@ -679,16 +668,9 @@ class _PreferenceSection extends StatelessWidget {
             const SizedBox(width: 10),
             Column(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const SizedBox(height: 40),
-                IconButton(
-                  icon: Icon(
-                    Icons.delete_outline,
-                    color: Colors.grey[600],
-                    size: 20,
-                  ),
+              children: [                IconButton(
+                  icon: const Icon(Icons.delete, color: Color(0xFF391713)),
                   onPressed: () => onRemoveCuisine(cuisine, isLiked),
-                  tooltip: 'Remove cuisine',
                 ),
               ],
             ),

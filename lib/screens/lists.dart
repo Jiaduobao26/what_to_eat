@@ -67,9 +67,21 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
   void initState() {
     super.initState();
     
+    // 设置滚动监听器
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 100) {
+        print('Scroll reached bottom: nextPageToken=$_nextPageToken, isLoadingMore=$_isLoadingMore');
+        if (_nextPageToken != null && !_isLoadingMore) {
+          print('Triggering load more...');
+          fetchNearbyRestaurants(loadMore: true);
+        }
+      }
+    });
+    
     // 首先检查Provider中是否已有数据
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _provider = Provider.of<NearbyRestaurantProvider>(context, listen: false);      if (_provider!.hasLoaded && _provider!.restaurants.isNotEmpty && !_hasLoaded) {
+      _provider = Provider.of<NearbyRestaurantProvider>(context, listen: false);
+      if (_provider!.hasLoaded && _provider!.restaurants.isNotEmpty && !_hasLoaded) {
         // 使用Provider中的数据
         setState(() {
           _allRestaurants = _provider!.restaurants;
@@ -90,15 +102,8 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
       // 监听Provider数据变化
       _provider!.addListener(_onProviderDataChanged);
     });
-    
-    _scrollController.addListener(() {
-      if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 100) {
-        if (_nextPageToken != null && !_isLoadingMore) {
-          fetchNearbyRestaurants(loadMore: true);
-        }
-      }
-    });
   }
+
   @override
   void dispose() {
     _scrollController.dispose();
@@ -107,7 +112,8 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
     _provider?.removeListener(_onProviderDataChanged);
     super.dispose();
   }
-    void _onProviderDataChanged() {
+
+  void _onProviderDataChanged() {
     if (_provider != null && _provider!.hasLoaded && _provider!.restaurants.isNotEmpty && mounted) {
       setState(() {
         _allRestaurants = _provider!.restaurants;
@@ -127,6 +133,7 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
   }
 
   void _filterRestaurantsByDistance() {
+    print('Filtering by distance: selectedDistance=$_selectedDistance, allRestaurants=${_allRestaurants.length}');
     if (_allRestaurants.isEmpty) return;
     
     final filteredRestaurants = _allRestaurants.where((restaurant) {
@@ -147,13 +154,24 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
       return distance <= _selectedDistance;
     }).toList();
     
+    print('After distance filter: ${filteredRestaurants.length} restaurants');
+    
     setState(() {
       _restaurants = filteredRestaurants;
     });
     
     // 通知父组件餐厅数据已更新
     widget.onRestaurantsChanged?.call(_restaurants);
+    
+    // If filtered results are too few and we have more data to load, try to load more restaurants
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_restaurants.length < 10 && _nextPageToken != null && !_isLoadingMore && mounted) {
+        print('Filtered results too few (${_restaurants.length}), loading more...');
+        fetchNearbyRestaurants(loadMore: true);
+      }
+    });
   }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -207,7 +225,11 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
   }
 
   Future<void> fetchNearbyRestaurants({bool loadMore = false}) async {
-    if (loadMore && (_nextPageToken == null || _isLoadingMore)) return;
+    print('fetchNearbyRestaurants called: loadMore=$loadMore, nextPageToken=$_nextPageToken, isLoadingMore=$_isLoadingMore');
+    if (loadMore && (_nextPageToken == null || _isLoadingMore)) {
+      print('Early return: nextPageToken=$_nextPageToken, isLoadingMore=$_isLoadingMore');
+      return;
+    }
     if (!mounted) return;
     setState(() {
       if (!loadMore) _loading = true;
@@ -220,13 +242,16 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
       if (loadMore && _nextPageToken != null) {
         url += '&pagetoken=$_nextPageToken';
       }
+      print('Fetching URL: $url');
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final results = data['results'] as List;
+        print('API response: ${results.length} restaurants, nextPageToken=${data['next_page_token']}');
         
         // 过滤用户不喜欢的餐厅和菜系
         final filteredResults = await _filterDislikedRestaurants(results.map((e) => e as Map<String, dynamic>).toList());
+        print('After filtering: ${filteredResults.length} restaurants');
           if (!mounted) return;
         setState(() {
           if (loadMore) {
@@ -239,12 +264,15 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
           _isLoadingMore = false;
         });
         
+        print('Updated state: allRestaurants=${_allRestaurants.length}, nextPageToken=$_nextPageToken');
+        
         // Apply distance filter to update displayed restaurants
         _filterRestaurantsByDistance();
         
         // 更新 Provider
         _provider?.updateRestaurants(_allRestaurants);
       } else {
+        print('HTTP error: ${response.statusCode}');
         if (!mounted) return;
         setState(() {
           _error = '网络错误';
@@ -253,8 +281,7 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
         });
       }
     } catch (e) {
-      print('fetchNearbyRestaurants error: '
-          + e.toString());
+      print('fetchNearbyRestaurants error: $e');
       if (!mounted) return;
       setState(() {
         _error = e.toString();
@@ -268,22 +295,18 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
     try {
       print('getCurrentLocation: start');
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      print('getCurrentLocation: serviceEnabled = '
-          + serviceEnabled.toString());
+      print('getCurrentLocation: serviceEnabled = $serviceEnabled');
       if (!serviceEnabled) return;
       LocationPermission permission = await Geolocator.checkPermission();
-      print('getCurrentLocation: permission = '
-          + permission.toString());
+      print('getCurrentLocation: permission = $permission');
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
-        print('getCurrentLocation: requestPermission = '
-            + permission.toString());
+        print('getCurrentLocation: requestPermission = $permission');
         if (permission == LocationPermission.denied) return;
       }
       if (permission == LocationPermission.deniedForever) return;
       Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-      print('getCurrentLocation: position = '
-          + position.toString());
+      print('getCurrentLocation: position = $position');
       if (!mounted) return;
       setState(() {
         lat = position.latitude;
@@ -291,8 +314,7 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
       });
       fetchNearbyRestaurants();
     } catch (e) {
-      print('getCurrentLocation error: '
-          + e.toString());
+      print('getCurrentLocation error: $e');
       // 定位失败，继续用默认值
       fetchNearbyRestaurants();
     }
@@ -331,27 +353,6 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
     } catch (e) {
       print('_filterDislikedRestaurants error: $e');
       return restaurants; // 如果过滤失败，返回原始列表
-    }  }
-
-  // 建议：使用 Google Places Text Search API 来获取更准确的菜系信息
-  // 例如：搜索 "Chinese restaurant near me" 而不是普通的 nearby search
-  Future<void> fetchRestaurantsByCuisine(String cuisine, {bool loadMore = false}) async {
-    // 这是一个示例方法，展示如何按菜系搜索
-    try {
-      String url = 'https://maps.googleapis.com/maps/api/place/textsearch/json?query=$cuisine restaurant&location=$lat,$lng&radius=2000&key=$apiKey&language=en';
-      if (loadMore && _nextPageToken != null) {
-        url += '&pagetoken=$_nextPageToken';
-      }
-      
-      final response = await http.get(Uri.parse(url));
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final results = data['results'] as List;
-        // 处理结果...
-        print('Found ${results.length} $cuisine restaurants');
-      }
-    } catch (e) {
-      print('Error fetching $cuisine restaurants: $e');
     }
   }
 
@@ -395,6 +396,14 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
                         _selectedDistance = distance;
                       });
                       _filterRestaurantsByDistance();
+                      
+                      // Show a brief feedback to user
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Filtering restaurants within ${distance.toInt()} miles'),
+                          duration: const Duration(seconds: 1),
+                        ),
+                      );
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -491,6 +500,14 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
                 });
                 _filterRestaurantsByDistance();
                 Navigator.pop(context);
+                
+                // Show feedback to user
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Filtering restaurants within ${customDistance == customDistance.toInt() ? customDistance.toInt() : customDistance} miles'),
+                    duration: const Duration(seconds: 1),
+                  ),
+                );
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Please enter a valid distance')),
@@ -523,6 +540,7 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
 class _GoogleRestaurantCard extends StatelessWidget {
   final Map<String, dynamic> info;
   const _GoogleRestaurantCard({required this.info});
+
   Future<bool> _isLikedRestaurant(String userId, String placeId) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -693,6 +711,7 @@ class _GoogleRestaurantCard extends StatelessWidget {
 
     return typeMap[type] ?? type.replaceAll('_', ' ').toUpperCase();
   }
+
   @override
   Widget build(BuildContext context) {
     final name = info['name'] ?? '';
@@ -720,6 +739,7 @@ class _GoogleRestaurantCard extends StatelessWidget {
     final imageUrl = photoRef != null
         ? 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=$photoRef&key=${_ListsViewState.apiKey}'
         : null;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -783,7 +803,8 @@ class _GoogleRestaurantCard extends StatelessWidget {
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                  ),                  if (cuisineTypes.isNotEmpty) ...[
+                  ),
+                  if (cuisineTypes.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Row(
                       children: [
@@ -876,7 +897,9 @@ class _GoogleRestaurantCard extends StatelessWidget {
                   onPressed: () async {
                     final user = FirebaseAuth.instance.currentUser;
                     final placeId = info['place_id'] ?? '';
-                    final cuisine = (info['types'] != null && info['types'].isNotEmpty) ? info['types'][0] : '';                    bool likedRestaurant = false;
+                    final cuisine = (info['types'] != null && info['types'].isNotEmpty) ? info['types'][0] : '';
+                    
+                    bool likedRestaurant = false;
                     bool dislikedRestaurant = false;
                     bool likedCuisine = false;
                     bool dislikedCuisine = false;
@@ -894,6 +917,7 @@ class _GoogleRestaurantCard extends StatelessWidget {
                       likedCuisine = await _isLikedCuisine('', cuisine);
                       dislikedCuisine = await _isDislikedCuisine('', cuisine);
                     }
+
                     if (!context.mounted) return;
                     showDialog(
                       context: context,
@@ -901,7 +925,8 @@ class _GoogleRestaurantCard extends StatelessWidget {
                         initialRestaurantLiked: likedRestaurant,
                         initialRestaurantDisliked: dislikedRestaurant,
                         initialCuisineLiked: likedCuisine,
-                        initialCuisineDisliked: dislikedCuisine,                        onLikeRestaurant: () async {
+                        initialCuisineDisliked: dislikedCuisine,
+                        onLikeRestaurant: () async {
                           final user = FirebaseAuth.instance.currentUser;
                           if (info['place_id'] != null && info['name'] != null) {
                             if (user != null) {
@@ -988,7 +1013,8 @@ class _GoogleRestaurantCard extends StatelessWidget {
                               const SnackBar(content: Text('Added to liked restaurants')),
                             );
                           }
-                        },                        onDislikeRestaurant: () async {
+                        },
+                        onDislikeRestaurant: () async {
                           final user = FirebaseAuth.instance.currentUser;
                           if (info['place_id'] != null && info['name'] != null) {
                             if (user != null) {
@@ -1075,7 +1101,8 @@ class _GoogleRestaurantCard extends StatelessWidget {
                               const SnackBar(content: Text('Added to disliked restaurants')),
                             );
                           }
-                        },                        onLikeCuisine: () async {
+                        },
+                        onLikeCuisine: () async {
                           final user = FirebaseAuth.instance.currentUser;
                           if (info['types'] != null && info['types'].isNotEmpty) {
                             if (user != null) {
