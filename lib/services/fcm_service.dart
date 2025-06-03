@@ -290,23 +290,45 @@ class FCMService {
 
   void _showLocalNotification(RemoteMessage message) async {
     final notification = message.notification;
-    if (notification == null) return;
+    if (notification == null) {
+      if (kDebugMode) {
+        print('❌ No notification data found in message');
+      }
+      return;
+    }
 
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'high_importance_channel',
-      'Default Notifications',
-      channelDescription: 'Channel used for Firebase foreground notifications',
-      importance: Importance.high,
-      priority: Priority.high,
-    );
-    const NotificationDetails details = NotificationDetails(android: androidDetails);
+    if (kDebugMode) {
+      print('🔔 Showing local notification:');
+      print('   Title: ${notification.title}');
+      print('   Body: ${notification.body}');
+      print('   Channel: high_importance_channel');
+    }
 
-    await _localNotifications.show(
-      notification.hashCode,
-      notification.title,
-      notification.body,
-      details,
-      payload: message.data.toString(),
-    );
+    try {
+      const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+        'high_importance_channel',
+        'Default Notifications',
+        channelDescription: 'Channel used for Firebase foreground notifications',
+        importance: Importance.high,
+        priority: Priority.high,
+      );
+      const NotificationDetails details = NotificationDetails(android: androidDetails);
+
+      await _localNotifications.show(
+        notification.hashCode,
+        notification.title,
+        notification.body,
+        details,
+        payload: message.data.toString(),
+      );
+      
+      if (kDebugMode) {
+        print('✅ Local notification display attempt completed');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error showing local notification: $e');
+      }
+    }
   }
 }
