@@ -88,7 +88,8 @@ flutter:
     - assets/cuisines.json
     - assets/cuisines_images/
     - assets/icon/app_icon.png
-    - assets/local.properties
+    # - assets/local.properties
+    - local.properties
 
     
   # An image asset can refer to one or more resolution-specific "variants", see
