@@ -74,87 +74,137 @@ class _WheelOneViewState extends State<WheelOneView> {
                 const SizedBox(height: 40),
                 SizedBox(
                   height: 300,
-                  child:
-                      state.options.length > 1
-                          ? FortuneWheel(
-                            selected: _streamController.stream,
-                            animateFirst: false,
-                            onAnimationEnd: _onWheelStop,
-                            indicators: <FortuneIndicator>[
-                              FortuneIndicator(
-                                alignment: Alignment.topCenter,
-                                child: Icon(
-                                  Icons.arrow_drop_down,
-                                  size: 48,
-                                  color: Color(0xFFE95322),
-                                ),
-                              ),
-                            ],
-                            items: [
-                              for (var option in state.options)
-                                FortuneItem(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      option.keyword.isEmpty
-                                          ? const Icon(
-                                            Icons.image,
-                                            size: 40,
-                                            color: Colors.grey,
-                                          )
-                                          : Image.asset(
-                                            'assets/cuisines_images/${option.keyword}.png',
-                                            width: 40,
-                                            height: 40,
-                                            errorBuilder:
-                                                (context, error, stackTrace) =>
-                                                    const Icon(
-                                                      Icons.food_bank,
-                                                      size: 40,
-                                                      color: Colors.grey,
-                                                    ),
-                                          ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        option.name,
-                                        style: const TextStyle(
-                                          color: Color(0xFF391713),
-                                          fontSize: 14,
-                                          fontFamily: 'Roboto',
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  style: FortuneItemStyle(
-                                    color: const Color(0xFFFFF3E0),
-                                    borderColor: const Color(0xFFE95322),
-                                    borderWidth: 3,
-                                  ),
-                                ),
-                            ],
-                          )
-                          : Center(
-                            child: Text(
+                  child: (() {
+                    // 检查是否有空选项
+                    final hasEmptyOptions = state.options.any((option) => option.keyword.isEmpty);
+                    
+                    if (state.options.length < 2) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.warning_amber_rounded,
+                              size: 48,
+                              color: Colors.orange[700],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
                               'Please add at least 2 options to spin the wheel',
+                              textAlign: TextAlign.center,
                               style: TextStyle(
-                                color: Colors.red[700],
-                                fontSize: 14,
+                                color: Colors.orange[700],
+                                fontSize: 16,
                                 fontFamily: 'Roboto',
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
+                          ],
+                        ),
+                      );
+                    }
+                    
+                    if (hasEmptyOptions) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.edit_note,
+                              size: 48,
+                              color: Colors.red[700],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Some options are incomplete.\nPlease select cuisines for all options.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.red[700],
+                                fontSize: 16,
+                                fontFamily: 'Roboto',
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    
+                    // 正常显示转盘
+                    return FortuneWheel(
+                      selected: _streamController.stream,
+                      animateFirst: false,
+                      onAnimationEnd: _onWheelStop,
+                      indicators: <FortuneIndicator>[
+                        FortuneIndicator(
+                          alignment: Alignment.topCenter,
+                          child: Icon(
+                            Icons.arrow_drop_down,
+                            size: 48,
+                            color: Color(0xFFE95322),
                           ),
+                        ),
+                      ],
+                      items: [
+                        for (var option in state.options)
+                          FortuneItem(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                option.keyword.isEmpty
+                                    ? const Icon(
+                                      Icons.image,
+                                      size: 40,
+                                      color: Colors.grey,
+                                    )
+                                    : Image.asset(
+                                      'assets/cuisines_images/${option.keyword}.png',
+                                      width: 40,
+                                      height: 40,
+                                      errorBuilder:
+                                          (context, error, stackTrace) =>
+                                              const Icon(
+                                                Icons.food_bank,
+                                                size: 40,
+                                                color: Colors.grey,
+                                              ),
+                                    ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  option.name,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Color(0xFF391713),
+                                    fontSize: 14,
+                                    fontFamily: 'Roboto',
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            style: FortuneItemStyle(
+                              color: const Color(0xFFFFF3E0),
+                              borderColor: const Color(0xFFE95322),
+                              borderWidth: 3,
+                            ),
+                          ),
+                      ],
+                    );
+                  })(),
                 ),
                 BlocBuilder<WheelBloc, WheelState>(
                   builder: (context, state) {
+                    final hasEmptyOptions = state.options.any((option) => option.keyword.isEmpty);
+                    final canSpin = state.options.length >= 2 && !hasEmptyOptions;
+                    
                     return Column(
                       children: [
                         if (!state.showResult) ...[
                           const SizedBox(height: 40),
                           CustomButtonWidget(
-                            color: 'white',
+                            color: canSpin ? 'white' : 'disabled',
                             text: 'GO!',
-                            onPressed:() async {
+                            onPressed: canSpin ? () {
                               final randomIndex = Random().nextInt(
                                 context
                                     .read<WheelBloc>()
@@ -167,7 +217,7 @@ class _WheelOneViewState extends State<WheelOneView> {
                                 _isSpinning = true;
                                 _selectedIndex = randomIndex;
                               });
-                            },
+                            } : null,
                           ),
                         ] else ...[
                           const SizedBox.shrink(),

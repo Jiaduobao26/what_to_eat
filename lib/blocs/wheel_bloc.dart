@@ -148,7 +148,17 @@ class WheelBloc extends Bloc<WheelEvent, WheelState> {
       await saveOptionsToLocal(newOptions);
     });
     on<AddOptionEvent>((event, emit) async {
-      final newOptions = List<Option>.from(state.options)..add(Option(name: '', keyword: ''));
+      // 找到一个还没有被使用的菜系作为默认选项
+      final usedKeywords = state.options.map((option) => option.keyword).toSet();
+      final availableCuisines = cuisines.where((cuisine) => !usedKeywords.contains(cuisine.keyword)).toList();
+      
+      final defaultOption = availableCuisines.isNotEmpty 
+        ? Option(name: availableCuisines.first.name, keyword: availableCuisines.first.keyword)
+        : cuisines.isNotEmpty 
+          ? Option(name: cuisines.first.name, keyword: cuisines.first.keyword)
+          : const Option(name: 'Default Option', keyword: 'default'); // 最后的备用方案
+      
+      final newOptions = List<Option>.from(state.options)..add(defaultOption);
       emit(state.copyWith(options: newOptions));
       await saveOptionsToLocal(newOptions);
     });

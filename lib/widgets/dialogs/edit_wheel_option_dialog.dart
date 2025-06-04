@@ -151,6 +151,33 @@ class EditWheelOptionsDialog extends StatelessWidget {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       onPressed: () {
+                        // 检查是否有空选项
+                        final hasEmptyOptions = state.options.any((option) => option.keyword.isEmpty);
+                        if (hasEmptyOptions) {
+                          Fluttertoast.showToast(
+                            msg: "Please select a cuisine for all options before closing.",
+                            toastLength: Toast.LENGTH_LONG,
+                            gravity: ToastGravity.CENTER,
+                            backgroundColor: Colors.red[700],
+                            textColor: Colors.white,
+                            fontSize: 16.0,
+                          );
+                          return;
+                        }
+                        
+                        // 检查是否至少有2个选项
+                        if (state.options.length < 2) {
+                          Fluttertoast.showToast(
+                            msg: "At least 2 options are required for the wheel.",
+                            toastLength: Toast.LENGTH_LONG,
+                            gravity: ToastGravity.CENTER,
+                            backgroundColor: Colors.red[700],
+                            textColor: Colors.white,
+                            fontSize: 16.0,
+                          );
+                          return;
+                        }
+                        
                         Navigator.of(context).pop();
                       },
                       child: const Text('Close'),

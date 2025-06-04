@@ -115,10 +115,26 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
   }
 
   Future<void> _loadApiKey() async {
-    final apiKey = await LocalPropertiesService.getGoogleMapsApiKey();
-    setState(() {
-      _apiKey = apiKey;
-    });
+    try {
+      print('🔑 Loading API key...');
+      final apiKey = await LocalPropertiesService.getGoogleMapsApiKey();
+      if (apiKey != null) {
+        print('✅ API key loaded successfully: ${apiKey.substring(0, 10)}...');
+        setState(() {
+          _apiKey = apiKey;
+        });
+      } else {
+        print('❌ API key is null - check assets/local.properties file');
+        setState(() {
+          _error = 'API key not found. Please check configuration.';
+        });
+      }
+    } catch (e) {
+      print('❌ Error loading API key: $e');
+      setState(() {
+        _error = 'Failed to load API key: $e';
+      });
+    }
   }
 
   void _onProviderDataChanged() {
@@ -245,15 +261,27 @@ class _ListsViewState extends State<ListsView> with AutomaticKeepAliveClientMixi
       if (!loadMore) _loading = true;
       _error = null;
       if (loadMore) _isLoadingMore = true;
-    });    try {
+    });
+
+    try {
       // Ensure API key is loaded before making the request
       if (_apiKey == null) {
+        print('🔑 API key is null, attempting to load...');
         await _loadApiKey();
+        
+        // Wait a bit and retry if still null
+        if (_apiKey == null) {
+          print('🔑 API key still null after loading, waiting and retrying...');
+          await Future.delayed(const Duration(milliseconds: 500));
+          await _loadApiKey();
+        }
       }
       
       if (_apiKey == null) {
-        throw Exception('API key not available');
+        throw Exception('Google Maps API key not available. Please check that assets/local.properties exists and contains GOOGLE_MAPS_API_KEY.');
       }
+      
+      print('🔑 Using API key: ${_apiKey!.substring(0, 10)}...');
       
       String url =
           'https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=$lat,$lng&radius=2000&type=restaurant&key=$_apiKey&language=en';

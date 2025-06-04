@@ -86,6 +86,7 @@ class _MyRouterAppState extends State<MyRouterApp>
   late final Animation<double> _logoScale;
   late final Animation<double> _logoRotation;
   late final Animation<double> _logoOpacity;
+  late final Animation<double> _overlayOpacity;
   bool _showSplash = true; // 用来控制是否展示启动页
 
   @override
@@ -94,11 +95,12 @@ class _MyRouterAppState extends State<MyRouterApp>
     final authBloc = context.read<AuthenticationBloc>();
     _appRouter = AppRouter(authBloc: authBloc);
 
-    // 2. 创建动画控制器：持续 2 秒的缩放
+    // 2. 创建动画控制器：缩短为1.5秒，减少阻塞时间
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 3),
+      duration: const Duration(milliseconds: 1500), // 从3秒缩短到1.5秒
     );
+    
     // 缩放动画：从0到1.2再回到1.0
     _logoScale = TweenSequence([
       TweenSequenceItem(
@@ -115,7 +117,7 @@ class _MyRouterAppState extends State<MyRouterApp>
 
     _logoRotation = Tween<double>(
       begin: 0.0,
-      end: 4 * 3.14159,
+      end: 2 * 3.14159, // 减少旋转次数，从4圈减到1圈
     ).animate(CurvedAnimation(
       parent: _animController,
       curve: Curves.easeOutCubic,
@@ -129,15 +131,31 @@ class _MyRouterAppState extends State<MyRouterApp>
       ),
       TweenSequenceItem(
         tween: ConstantTween<double>(1.0),
-        weight: 70.0,
+        weight: 50.0,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.0, end: 0.0),
+        weight: 20.0,
+      ),
+    ]).animate(_animController);
+
+    // 覆盖层透明度动画
+    _overlayOpacity = TweenSequence([
+      TweenSequenceItem(
+        tween: ConstantTween<double>(1.0),
+        weight: 80.0,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.0, end: 0.0)
+            .chain(CurveTween(curve: Curves.easeOut)),
+        weight: 20.0,
       ),
     ]).animate(_animController);
 
     _animController.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
-        Future.delayed(const Duration(milliseconds: 500), () {
-          setState(() => _showSplash = false);
-        });
+        // 移除额外延迟，动画完成立即隐藏启动页
+        setState(() => _showSplash = false);
       }
     });
 
@@ -254,61 +272,68 @@ class _MyRouterAppState extends State<MyRouterApp>
 
   @override
   Widget build(BuildContext context) {
-    // 如果仍然要显示启动动画，就返回一个单独的 MaterialApp 包裹缩放动画
-    if (_showSplash) {
-      return MaterialApp(
-        debugShowCheckedModeBanner: false,
-        home: Scaffold(
-          backgroundColor: Colors.white,
-          body: Center(
-            child: AnimatedBuilder(
-              animation: _animController,
-              builder: (context, child) {
-                return Transform.rotate(
-                  angle: _logoRotation.value,
-                  child: FadeTransition(
-                    opacity: _logoOpacity,
-                    child: ScaleTransition(
-                      scale: _logoScale,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 10,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
-                        ),
-                        child: Image.asset(
-                          'assets/icon/app_icon.png',
-                          width: 150,
-                          height: 150,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-      );
-    }
-
-    // 动画结束后，渲染你原本的路由结构
+    // 改为非阻塞方式：始终渲染主应用，用覆盖层显示启动动画
     return BlocListener<AuthenticationBloc, AuthenticationState>(
       listenWhen: (previous, current) => previous.isLoggedIn != current.isLoggedIn,
       listener: (context, state) {
       },
       child: MaterialApp.router(
         routerConfig: _appRouter.router,
-        title: 'Flutter Demo',
+        title: 'What to Eat',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         ),
+        builder: (context, child) {
+          // 如果需要显示启动动画，在主应用上层显示覆盖层
+          return Stack(
+            children: [
+              // 主应用内容（始终存在，不被阻塞）
+              child ?? const SizedBox(),
+              // 启动动画覆盖层（可以消失）
+              if (_showSplash)
+                AnimatedBuilder(
+                  animation: _animController,
+                  builder: (context, _) {
+                    return Opacity(
+                      opacity: _overlayOpacity.value,
+                      child: Container(
+                        color: Colors.white,
+                        child: Center(
+                          child: Transform.rotate(
+                            angle: _logoRotation.value,
+                            child: FadeTransition(
+                              opacity: _logoOpacity,
+                              child: ScaleTransition(
+                                scale: _logoScale,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(20),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.2),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 5),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Image.asset(
+                                    'assets/icon/app_icon.png',
+                                    width: 120, // 稍微缩小图标
+                                    height: 120,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+            ],
+          );
+        },
       ),
     );
   }
