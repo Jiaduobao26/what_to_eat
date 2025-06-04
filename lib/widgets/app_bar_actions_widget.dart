@@ -16,8 +16,8 @@ class AppBarActionsWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (location.startsWith('/profile')) {
-      // do not show actions on profile page
+    if (location.startsWith('/profile') || location.startsWith('/wheel')) {
+      // do not show actions on profile page and wheel page
       return const SizedBox.shrink();
     }
 
@@ -30,9 +30,6 @@ class AppBarActionsWidget extends StatelessWidget {
         // 使用push而不是go，这样可以正常返回
         context.push('/map', extra: restaurants);
       };
-    } else if (location.startsWith('/wheel')) {
-      icon = Icons.add;
-      onPressed = onEditWheel;
     } else {
       return const SizedBox.shrink();
     }

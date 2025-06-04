@@ -92,13 +92,14 @@ class _MyRouterAppState extends State<MyRouterApp>
   @override
   void initState() {
     super.initState();
+    print('🚀 MyRouterApp initState - 开始初始化启动动画');
     final authBloc = context.read<AuthenticationBloc>();
     _appRouter = AppRouter(authBloc: authBloc);
 
-    // 2. 创建动画控制器：缩短为1.5秒，减少阻塞时间
+    // 2. 创建动画控制器：增加动画时长确保可见
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500), // 从3秒缩短到1.5秒
+      duration: const Duration(milliseconds: 2500), // 增加到2.5秒
     );
     
     // 缩放动画：从0到1.2再回到1.0
@@ -117,7 +118,7 @@ class _MyRouterAppState extends State<MyRouterApp>
 
     _logoRotation = Tween<double>(
       begin: 0.0,
-      end: 2 * 3.14159, // 减少旋转次数，从4圈减到1圈
+      end: 4 * 3.14159, // 增加旋转，更明显
     ).animate(CurvedAnimation(
       parent: _animController,
       curve: Curves.easeOutCubic,
@@ -153,13 +154,15 @@ class _MyRouterAppState extends State<MyRouterApp>
     ]).animate(_animController);
 
     _animController.addStatusListener((status) {
+      print('🎬 动画状态变化: $status');
       if (status == AnimationStatus.completed) {
-        // 移除额外延迟，动画完成立即隐藏启动页
+        print('✅ 启动动画完成，隐藏启动页');
         setState(() => _showSplash = false);
       }
     });
 
     // 4. 动画开始
+    print('🎬 开始启动动画...');
     _animController.forward();
 
     // 5. 剩余初始化逻辑：注册 BLoC 观察，预加载数据，检查通知权限
@@ -292,44 +295,48 @@ class _MyRouterAppState extends State<MyRouterApp>
               child ?? const SizedBox(),
               // 启动动画覆盖层（可以消失）
               if (_showSplash)
-                AnimatedBuilder(
-                  animation: _animController,
-                  builder: (context, _) {
-                    return Opacity(
-                      opacity: _overlayOpacity.value,
-                      child: Container(
-                        color: Colors.white,
-                        child: Center(
-                          child: Transform.rotate(
-                            angle: _logoRotation.value,
-                            child: FadeTransition(
-                              opacity: _logoOpacity,
-                              child: ScaleTransition(
-                                scale: _logoScale,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(20),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.2),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 5),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Image.asset(
-                                    'assets/icon/app_icon.png',
-                                    width: 120, // 稍微缩小图标
-                                    height: 120,
+                Positioned.fill(
+                  child: AnimatedBuilder(
+                    animation: _animController,
+                    builder: (context, _) {
+                      return Opacity(
+                        opacity: _overlayOpacity.value,
+                        child: Container(
+                          color: Colors.white,
+                          width: double.infinity,
+                          height: double.infinity,
+                          child: Center(
+                            child: Transform.rotate(
+                              angle: _logoRotation.value,
+                              child: FadeTransition(
+                                opacity: _logoOpacity,
+                                child: ScaleTransition(
+                                  scale: _logoScale,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(20),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.3),
+                                          blurRadius: 15,
+                                          offset: const Offset(0, 8),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Image.asset(
+                                      'assets/icon/app_icon.png',
+                                      width: 150, // 增加图标大小
+                                      height: 150,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
             ],
           );
