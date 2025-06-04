@@ -9,6 +9,7 @@ import '../widgets/dialogs/map_popup.dart';
 import '../widgets/dialogs/list_dialog.dart';
 import '../utils/distance_utils.dart';
 import '../services/local_properties_service.dart';
+import '../screens/restaurant_detail_screen.dart';
 
 class MapScreen extends StatelessWidget {
   final List<Map<String, dynamic>>? restaurants;
@@ -34,11 +35,16 @@ class _MapScreenViewState extends State<MapScreenView> {
   List<Map<String, dynamic>> _restaurants = [];
   bool _loading = true;
   String? _error;
-  Set<Marker> _markers = {};  GoogleMapController? _mapController;
+  Set<Marker> _markers = {};
+  GoogleMapController? _mapController;
   String? _apiKey;
   // Santa Clara, CA 95051
   double lat = 37.3467;
   double lng = -121.9842;
+  
+  // 添加状态管理变量
+  String? _selectedRestaurantPlaceId;
+  bool _showingDetails = false;
   
   // 添加取消标志
   bool _disposed = false;
@@ -197,8 +203,16 @@ class _MapScreenViewState extends State<MapScreenView> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Color(0xFF391713)),
           onPressed: () {
-            // 现在使用push导航，直接pop即可
-            Navigator.of(context).pop();
+            if (_showingDetails) {
+              // 如果正在显示详情，返回列表视图
+              setState(() {
+                _showingDetails = false;
+                _selectedRestaurantPlaceId = null;
+              });
+            } else {
+              // 如果在列表视图，返回上一页
+              Navigator.of(context).pop();
+            }
           },
         ),
         title: const Text(
@@ -236,23 +250,237 @@ class _MapScreenViewState extends State<MapScreenView> {
                         ),
                       ),
                     ),
-                    Expanded(                      child: ListView.builder(
-                        padding: const EdgeInsets.all(10),
-                        itemCount: _restaurants.length,
-                        itemBuilder: (context, index) => GestureDetector(
-                          onTap: () => _moveToRestaurant(_restaurants[index]),
-                          child: _GoogleRestaurantCard(
-                            info: _restaurants[index],
-                            userLat: lat,
-                            userLng: lng,
-                            apiKey: _apiKey,
+                    Expanded(
+                      child: _showingDetails && _selectedRestaurantPlaceId != null
+                          ? _buildRestaurantDetail()
+                          : _buildRestaurantList(),
+                    ),
+                  ],
+                ),
+    );
+  }
+
+  Widget _buildRestaurantList() {
+    return ListView.builder(
+      padding: const EdgeInsets.all(10),
+      itemCount: _restaurants.length,
+      itemBuilder: (context, index) => _GoogleRestaurantCard(
+        info: _restaurants[index],
+        userLat: lat,
+        userLng: lng,
+        apiKey: _apiKey,
+        onCardTap: () => _showRestaurantDetails(_restaurants[index]),
+      ),
+    );
+  }
+
+  Widget _buildRestaurantDetail() {
+    final restaurant = _restaurants.firstWhere((r) => r['place_id'] == _selectedRestaurantPlaceId);
+    final name = restaurant['name'] ?? '';
+    final rating = restaurant['rating']?.toString() ?? '';
+    final address = restaurant['vicinity'] ?? '';
+    final types = restaurant['types'] as List<dynamic>? ?? [];
+    
+    final photoRef = (restaurant['photos'] != null && restaurant['photos'].isNotEmpty)
+        ? restaurant['photos'][0]['photo_reference']
+        : null;
+    final imageUrl = photoRef != null && _apiKey != null
+        ? 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=$photoRef&key=$_apiKey'
+        : null;
+    
+    return Column(
+      children: [
+        // 详情页面头部，包含关闭按钮
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(
+              bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1),
+            ),
+          ),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Restaurant Details',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF391713),
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, color: Color(0xFF391713)),
+                onPressed: () {
+                  setState(() {
+                    _showingDetails = false;
+                    _selectedRestaurantPlaceId = null;
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+        // 详情内容
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 餐厅图片
+                if (imageUrl != null)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      imageUrl,
+                      width: double.infinity,
+                      height: 200,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          Container(
+                            height: 200,
+                            color: Colors.grey[300],
+                            child: const Icon(Icons.broken_image, size: 64),
                           ),
+                    ),
+                  ),
+                const SizedBox(height: 16),
+                
+                // 餐厅名称
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF391713),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                
+                // 评分
+                if (rating.isNotEmpty)
+                  Row(
+                    children: [
+                      Icon(Icons.star, color: Colors.amber[700], size: 20),
+                      const SizedBox(width: 4),
+                      Text(
+                        rating,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF391713),
+                        ),
+                      ),
+                    ],
+                  ),
+                const SizedBox(height: 8),
+                
+                // 地址
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.location_on, size: 20, color: Color(0xFFE95322)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        address,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF79747E),
                         ),
                       ),
                     ),
                   ],
                 ),
+                const SizedBox(height: 16),
+                
+                // 菜系类型
+                if (types.isNotEmpty)
+                  Wrap(
+                    spacing: 8,
+                    children: types.take(3).map((type) => Chip(
+                      label: Text(
+                        type.toString().replaceAll('_', ' ').toUpperCase(),
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      backgroundColor: const Color(0xFFE95322).withOpacity(0.1),
+                      labelStyle: const TextStyle(color: Color(0xFFE95322)),
+                    )).toList(),
+                  ),
+                const SizedBox(height: 24),
+                
+                // 操作按钮
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => _launchMaps(restaurant),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE95322),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        icon: const Icon(Icons.directions),
+                        label: const Text('Directions'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => RestaurantDetailScreen(
+                                placeId: restaurant['place_id'],
+                                initialName: name,
+                              ),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFFE95322),
+                          side: const BorderSide(color: Color(0xFFE95322)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        icon: const Icon(Icons.info_outline),
+                        label: const Text('Details'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
+  }
+
+  Future<void> _launchMaps(Map<String, dynamic> restaurant) async {
+    final lat = restaurant['geometry']?['location']?['lat'];
+    final lng = restaurant['geometry']?['location']?['lng'];
+    if (lat != null && lng != null) {
+      final url = 'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
+      if (await canLaunchUrl(Uri.parse(url))) {
+        await launchUrl(Uri.parse(url));
+      }
+    }
+  }
+
+  void _showRestaurantDetails(Map<String, dynamic> restaurant) {
+    // 先移动地图到餐厅位置
+    _moveToRestaurant(restaurant);
+    
+    // 然后显示详情视图
+    setState(() {
+      _selectedRestaurantPlaceId = restaurant['place_id'];
+      _showingDetails = true;
+    });
   }
 }
 
@@ -261,11 +489,13 @@ class _GoogleRestaurantCard extends StatelessWidget {
   final double userLat;
   final double userLng;
   final String? apiKey;
+  final VoidCallback onCardTap;
   const _GoogleRestaurantCard({
     required this.info,
     required this.userLat,
     required this.userLng,
     this.apiKey,
+    required this.onCardTap,
   });
   @override
   Widget build(BuildContext context) {
@@ -294,219 +524,224 @@ class _GoogleRestaurantCard extends StatelessWidget {
     final imageUrl = photoRef != null && apiKey != null
         ? 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=$photoRef&key=$apiKey'
         : null;
+    
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: imageUrl != null
-                  ? Image.network(
-                      imageUrl,
-                      width: 93,
-                      height: 93,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const Icon(Icons.broken_image, size: 60, color: Colors.grey),
-                    )
-                  : const SizedBox(
-                      width: 93,
-                      height: 93,
-                      child: Icon(Icons.image, size: 60, color: Colors.grey),
-                    ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: 16,
-                      fontFamily: 'Roboto',
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Row(
-                    children: [
-                      Text(
-                        rating,
-                        style: const TextStyle(
-                          color: Color(0xFF79747E),
-                          fontSize: 12,
-                          fontFamily: 'Roboto',
-                        ),
+      child: InkWell(
+        onTap: onCardTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: imageUrl != null
+                    ? Image.network(
+                        imageUrl,
+                        width: 93,
+                        height: 93,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(Icons.broken_image, size: 60, color: Colors.grey),
+                      )
+                    : const SizedBox(
+                        width: 93,
+                        height: 93,
+                        child: Icon(Icons.image, size: 60, color: Colors.grey),
                       ),
-                      const SizedBox(width: 5),
-                      const Icon(Icons.star, color: Color(0xFFFFA500), size: 16),
-                    ],
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    address,
-                    style: const TextStyle(
-                      color: Color(0xFF79747E),
-                      fontSize: 12,
-                      fontFamily: 'Roboto',
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 16,
+                        fontFamily: 'Roboto',
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),                  if (cuisineTypes.isNotEmpty) ...[
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 5),
                     Row(
                       children: [
-                        const Icon(
-                          Icons.restaurant_menu,
-                          size: 14,
-                          color: Color(0xFFE95322),
+                        Text(
+                          rating,
+                          style: const TextStyle(
+                            color: Color(0xFF79747E),
+                            fontSize: 12,
+                            fontFamily: 'Roboto',
+                          ),
                         ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            cuisineTypes,
+                        const SizedBox(width: 5),
+                        const Icon(Icons.star, color: Color(0xFFFFA500), size: 16),
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      address,
+                      style: const TextStyle(
+                        color: Color(0xFF79747E),
+                        fontSize: 12,
+                        fontFamily: 'Roboto',
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),                  if (cuisineTypes.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.restaurant_menu,
+                            size: 14,
+                            color: Color(0xFFE95322),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              cuisineTypes,
+                              style: const TextStyle(
+                                color: Color(0xFFE95322),
+                                fontSize: 11,
+                                fontFamily: 'Roboto',
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],                  // Distance display
+                    if (restaurantLat != null && restaurantLng != null) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.location_on,
+                            size: 14,
+                            color: Color(0xFF6B7280),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            DistanceUtils.calculateDistance(
+                              userLat,
+                              userLng,
+                              restaurantLat.toDouble(),
+                              restaurantLng.toDouble(),
+                            ),
                             style: const TextStyle(
-                              color: Color(0xFFE95322),
+                              color: Color(0xFF6B7280),
                               fontSize: 11,
                               fontFamily: 'Roboto',
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.w400,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      ],
-                    ),
-                  ],                  // Distance display
-                  if (restaurantLat != null && restaurantLng != null) ...[
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.location_on,
-                          size: 14,
-                          color: Color(0xFF6B7280),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          DistanceUtils.calculateDistance(
-                            userLat,
-                            userLng,
-                            restaurantLat.toDouble(),
-                            restaurantLng.toDouble(),
-                          ),
-                          style: const TextStyle(
-                            color: Color(0xFF6B7280),
-                            fontSize: 11,
-                            fontFamily: 'Roboto',
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+                    ],
                   ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    icon: Transform.rotate(
+                      angle: 1.5708, // 90 degrees in radians
+                      child: const Icon(Icons.navigation, color: Color(0xFFE95322)),
+                    ),
+                    onPressed: () {
+                      final lat = info['geometry']?['location']?['lat'];
+                      final lng = info['geometry']?['location']?['lng'];
+                      final name = info['name'] ?? 'Restaurant';
+                      final address = info['vicinity'] ?? '';
+                      if (lat != null && lng != null) {
+                        showModalBottomSheet(
+                          context: context,
+                          backgroundColor: Colors.transparent,
+                          builder: (context) => MapPopup(
+                            latitude: lat.toDouble(),
+                            longitude: lng.toDouble(),
+                            restaurantName: name,
+                            onAppleMapSelected: () async {
+                              final url = 'http://maps.apple.com/?q=' + Uri.encodeComponent('$name $address');
+                              if (await canLaunchUrl(Uri.parse(url))) {
+                                await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text("Couldn't open Apple Maps")),
+                                );
+                              }
+                            },
+                            onGoogleMapSelected: () async {
+                              final url = 'https://www.google.com/maps/search/?api=1&query=' + Uri.encodeComponent('$name $address');
+                              if (await canLaunchUrl(Uri.parse(url))) {
+                                await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text("Couldn't open Google Maps")),
+                                );
+                              }
+                            },
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Location information not available'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.more_vert, color: Color(0xFF391713)),
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => ListDialog(
+                          initialRestaurantLiked: false,
+                          initialRestaurantDisliked: false,
+                          initialCuisineLiked: false,
+                          initialCuisineDisliked: false,
+                          onLikeRestaurant: () {
+                            // TODO: 处理喜欢餐厅
+                            print('Like restaurant');
+                          },
+                          onDislikeRestaurant: () {
+                            // TODO: 处理不喜欢餐厅
+                            print('Dislike restaurant');
+                          },
+                          onLikeCuisine: () {
+                            // TODO: 处理喜欢菜系
+                            print('Like cuisine');
+                          },
+                          onDislikeCuisine: () {
+                            // TODO: 处理不喜欢菜系
+                            print('Dislike cuisine');
+                          },
+                          onCancel: () {
+                            print('Cancel');
+                          },
+                          onConfirm: () {
+                            print('Confirm');
+                          },
+                          description: 'You can mark this restaurant or cuisine as liked or disliked.',
+                        ),
+                      );
+                    },
+                  ),
                 ],
               ),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                IconButton(
-                  icon: Transform.rotate(
-                    angle: 1.5708, // 90 degrees in radians
-                    child: const Icon(Icons.navigation, color: Color(0xFFE95322)),
-                  ),
-                  onPressed: () {
-                    final lat = info['geometry']?['location']?['lat'];
-                    final lng = info['geometry']?['location']?['lng'];
-                    final name = info['name'] ?? 'Restaurant';
-                    final address = info['vicinity'] ?? '';
-                    if (lat != null && lng != null) {
-                      showModalBottomSheet(
-                        context: context,
-                        backgroundColor: Colors.transparent,
-                        builder: (context) => MapPopup(
-                          latitude: lat.toDouble(),
-                          longitude: lng.toDouble(),
-                          restaurantName: name,
-                          onAppleMapSelected: () async {
-                            final url = 'http://maps.apple.com/?q=' + Uri.encodeComponent('$name $address');
-                            if (await canLaunchUrl(Uri.parse(url))) {
-                              await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text("Couldn't open Apple Maps")),
-                              );
-                            }
-                          },
-                          onGoogleMapSelected: () async {
-                            final url = 'https://www.google.com/maps/search/?api=1&query=' + Uri.encodeComponent('$name $address');
-                            if (await canLaunchUrl(Uri.parse(url))) {
-                              await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text("Couldn't open Google Maps")),
-                              );
-                            }
-                          },
-                        ),
-                      );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Location information not available'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(Icons.more_vert, color: Color(0xFF391713)),
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (context) => ListDialog(
-                        initialRestaurantLiked: false,
-                        initialRestaurantDisliked: false,
-                        initialCuisineLiked: false,
-                        initialCuisineDisliked: false,
-                        onLikeRestaurant: () {
-                          // TODO: 处理喜欢餐厅
-                          print('Like restaurant');
-                        },
-                        onDislikeRestaurant: () {
-                          // TODO: 处理不喜欢餐厅
-                          print('Dislike restaurant');
-                        },
-                        onLikeCuisine: () {
-                          // TODO: 处理喜欢菜系
-                          print('Like cuisine');
-                        },
-                        onDislikeCuisine: () {
-                          // TODO: 处理不喜欢菜系
-                          print('Dislike cuisine');
-                        },
-                        onCancel: () {
-                          print('Cancel');
-                        },
-                        onConfirm: () {
-                          print('Confirm');
-                        },
-                        description: 'You can mark this restaurant or cuisine as liked or disliked.',
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

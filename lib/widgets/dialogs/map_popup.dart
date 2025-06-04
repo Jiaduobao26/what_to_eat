@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:io' show Platform;
 
 class MapPopup extends StatelessWidget {
@@ -43,21 +44,47 @@ class MapPopup extends StatelessWidget {
           if (isIOS)
             _buildOption(
               title: 'Apple Map',
-              onTap: () {
+              onTap: () async {
                 Navigator.pop(context);
-                onAppleMapSelected?.call();
+                if (onAppleMapSelected != null) {
+                  onAppleMapSelected!();
+                } else if (latitude != null && longitude != null) {
+                  await _launchAppleMaps();
+                }
               },
             ),
           _buildOption(
             title: 'Google Map',
-            onTap: () {
+            onTap: () async {
               Navigator.pop(context);
-              onGoogleMapSelected?.call();
+              if (onGoogleMapSelected != null) {
+                onGoogleMapSelected!();
+              } else if (latitude != null && longitude != null) {
+                await _launchGoogleMaps();
+              }
             },
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _launchAppleMaps() async {
+    final name = restaurantName ?? 'Restaurant';
+    final url = 'http://maps.apple.com/?q=${Uri.encodeComponent(name)}&ll=$latitude,$longitude';
+    
+    if (await canLaunchUrl(Uri.parse(url))) {
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Future<void> _launchGoogleMaps() async {
+    final name = restaurantName ?? 'Restaurant';
+    final url = 'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(name)}&center=$latitude,$longitude';
+    
+    if (await canLaunchUrl(Uri.parse(url))) {
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    }
   }
 
   Widget _buildOption({

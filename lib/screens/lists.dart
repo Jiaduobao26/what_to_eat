@@ -942,18 +942,17 @@ class _GoogleRestaurantCard extends StatelessWidget {
                       child: const Icon(Icons.navigation, color: Color(0xFFE95322)),
                     ),
                     onPressed: () {
+                      final lat = info['geometry']?['location']?['lat'];
+                      final lng = info['geometry']?['location']?['lng'];
+                      final name = info['name'] ?? 'Restaurant';
+                      
                       showModalBottomSheet(
                         context: context,
                         backgroundColor: Colors.transparent,
                         builder: (context) => MapPopup(
-                          onAppleMapSelected: () {
-                            // 处理 Apple Map 选择
-                            print('Apple Map selected');
-                          },
-                          onGoogleMapSelected: () {
-                            // 处理 Google Map 选择
-                            print('Google Map selected');
-                          },
+                          latitude: lat?.toDouble(),
+                          longitude: lng?.toDouble(),
+                          restaurantName: name,
                         ),
                       );
                     },
