@@ -88,6 +88,8 @@ class _MyRouterAppState extends State<MyRouterApp>
   late final Animation<double> _logoOpacity;
   late final Animation<double> _overlayOpacity;
   bool _showSplash = true; // Controls whether to show splash screen
+  bool _dataLoadingComplete = false; // Track when data loading is complete
+  double _currentOverlayOpacity = 1.0; // Current overlay opacity for fade-out
 
   @override
   void initState() {
@@ -96,76 +98,60 @@ class _MyRouterAppState extends State<MyRouterApp>
     final authBloc = context.read<AuthenticationBloc>();
     _appRouter = AppRouter(authBloc: authBloc);
 
-    // 2. Create animation controller: Increase duration for loading time
+    // Create animation controller with indefinite repeat for continuous rotation
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 4000), // Increased to 4 seconds
+      duration: const Duration(milliseconds: 2000), // Faster rotation cycle
     );
     
-    // Scale animation: from 0 to 1.2 then back to 1.0
+    // Scale animation: gentle pulsing effect
     _logoScale = TweenSequence([
       TweenSequenceItem(
-        tween: Tween<double>(begin: 0.0, end: 1.2)
-            .chain(CurveTween(curve: Curves.easeOut)),
-        weight: 60.0,
+        tween: Tween<double>(begin: 1.0, end: 1.1)
+            .chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 50.0,
       ),
       TweenSequenceItem(
-        tween: Tween<double>(begin: 1.2, end: 1.0)
+        tween: Tween<double>(begin: 1.1, end: 1.0)
             .chain(CurveTween(curve: Curves.easeInOut)),
-        weight: 40.0,
+        weight: 50.0,
       ),
     ]).animate(_animController);
 
+    // Continuous rotation for loading effect
     _logoRotation = Tween<double>(
       begin: 0.0,
-      end: 4 * 3.14159, // Increase rotation for more visibility
+      end: 2 * 3.14159, // One full rotation per cycle
     ).animate(CurvedAnimation(
       parent: _animController,
-      curve: Curves.easeOutCubic,
+      curve: Curves.linear, // Linear for smooth continuous rotation
     ));
 
-    // Opacity animation - Extended display time
-    _logoOpacity = TweenSequence([
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 0.0, end: 1.0),
-        weight: 30.0, // Reduce fade-in time
-      ),
-      TweenSequenceItem(
-        tween: ConstantTween<double>(1.0),
-        weight: 70.0, // Increase display time
-      ),
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 1.0, end: 0.0),
-        weight: 20.0, // Reduce fade-out time
-      ),
-    ]).animate(_animController);
+    // Logo stays visible during loading
+    _logoOpacity = ConstantTween<double>(1.0).animate(_animController);
 
-    // Overlay opacity animation - Longer display time
-    _overlayOpacity = TweenSequence([
-      TweenSequenceItem(
-        tween: ConstantTween<double>(1.0),
-        weight: 90.0, // Increase overlay display time
-      ),
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 1.0, end: 0.0)
-            .chain(CurveTween(curve: Curves.easeOut)),
-        weight: 20.0, // Quick fade-out
-      ),
-    ]).animate(_animController);
+    // Overlay stays at full opacity during loading
+    _overlayOpacity = ConstantTween<double>(1.0).animate(_animController);
 
-    _animController.addStatusListener((status) {
-      print('🎬 Animation status changed: $status');
-      if (status == AnimationStatus.completed) {
-        print('✅ Splash animation completed, hiding splash screen');
-        setState(() => _showSplash = false);
+    // Start continuous rotation animation
+    _animController.repeat();
+    print('🎬 Starting continuous loading animation...');
+
+    // Listen to restaurant provider for data loading completion
+    final restaurantProvider = context.read<NearbyRestaurantProvider>();
+    
+    // Add listener to monitor loading state
+    void checkLoadingState() {
+      if (restaurantProvider.hasLoaded && !_dataLoadingComplete) {
+        print('✅ Restaurant data loading completed, stopping animation');
+        _dataLoadingComplete = true;
+        _finishSplashAnimation();
       }
-    });
+    }
+    
+    restaurantProvider.addListener(checkLoadingState);
 
-    // 4. Start animation
-    print('🎬 Starting splash animation...');
-    _animController.forward();
-
-    // 5. Remaining initialization logic: register BLoC observer, preload data, check notification permissions
+    // Start background initialization
     WidgetsBinding.instance.addPostFrameCallback((_) {
       print('📱 Starting background initialization...');
       
@@ -175,14 +161,32 @@ class _MyRouterAppState extends State<MyRouterApp>
       
       // Preload restaurant data
       print('🍽️ Starting restaurant data preload...');
-      final restaurantProvider = context.read<NearbyRestaurantProvider>();
       restaurantProvider.preloadRestaurants().then((_) {
         print('✅ Restaurant data preload completed');
+        // Double check in case listener didn't catch it
+        if (!_dataLoadingComplete) {
+          _dataLoadingComplete = true;
+          _finishSplashAnimation();
+        }
       }).catchError((e) {
         print('❌ Restaurant data preload failed: $e');
+        // Even if loading fails, end the splash after a timeout
+        if (!_dataLoadingComplete) {
+          _dataLoadingComplete = true;
+          _finishSplashAnimation();
+        }
       });
       
-      // Delay notification permission check to give other initialization more time
+      // Fallback timeout in case data loading takes too long
+      Future.delayed(const Duration(seconds: 10), () {
+        if (mounted && !_dataLoadingComplete) {
+          print('⏰ Timeout reached, ending splash animation');
+          _dataLoadingComplete = true;
+          _finishSplashAnimation();
+        }
+      });
+      
+      // Delay notification permission check
       Future.delayed(const Duration(seconds: 3), () {
         if (mounted) {
           print('🔔 Checking notification permissions...');
@@ -190,6 +194,45 @@ class _MyRouterAppState extends State<MyRouterApp>
         }
       });
     });
+  }
+
+  // New method to handle the final animation and hide splash
+  void _finishSplashAnimation() {
+    if (!mounted) return;
+    
+    // Stop the repeat animation
+    _animController.stop();
+    
+    // Very fast fade-out animation
+    const fadeDuration = Duration(milliseconds: 200); // Much faster
+    const fadeSteps = 10; // Much fewer steps
+    final stepDuration = Duration(milliseconds: fadeDuration.inMilliseconds ~/ fadeSteps);
+    
+    int currentStep = 0;
+    
+    void fadeStep() {
+      if (!mounted) return;
+      
+      currentStep++;
+      final progress = currentStep / fadeSteps;
+      
+      // Use easing curve for smoother appearance
+      final easedProgress = progress * progress; // Quadratic easing
+      _currentOverlayOpacity = 1.0 - easedProgress;
+      
+      setState(() {});
+      
+      if (progress >= 1.0) {
+        // Fade complete, hide splash immediately
+        setState(() => _showSplash = false);
+      } else {
+        // Continue fading with minimal delay
+        Future.delayed(stepDuration, fadeStep);
+      }
+    }
+    
+    // Start the fade-out animation immediately
+    fadeStep();
   }
 
   @override
@@ -310,7 +353,7 @@ class _MyRouterAppState extends State<MyRouterApp>
                     animation: _animController,
                     builder: (context, _) {
                       return Opacity(
-                        opacity: _overlayOpacity.value,
+                        opacity: _currentOverlayOpacity,
                         child: Container(
                           color: Colors.white,
                           width: double.infinity,
