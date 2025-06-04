@@ -20,17 +20,22 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return BlocListener<AuthenticationBloc, AuthenticationState>(
+  Widget build(BuildContext context) {    return BlocListener<AuthenticationBloc, AuthenticationState>(
       listener: (context, state) {
         if (state.error != null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.error!)),
+            SnackBar(
+              content: Text(state.error!),
+              backgroundColor: Colors.red,
+            ),
           );
         }
-        if (!state.isLoading && !state.isLoggedIn && state.error == null) {
+        if (state.successMessage != null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Reset password email sent!')),
+            SnackBar(
+              content: Text(state.successMessage!),
+              backgroundColor: Colors.green,
+            ),
           );
           Future.delayed(const Duration(seconds: 2), () {
             context.go('/login');
@@ -84,8 +89,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   fontWeight: FontWeight.w400,
                 ),
               ),
-              const SizedBox(height: 8),
-              TextField(
+              const SizedBox(height: 8),              TextField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
                   hintText: 'Enter your email',
                   border: OutlineInputBorder(
@@ -107,18 +113,20 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     borderRadius: BorderRadius.circular(8),
                     side: const BorderSide(color: Color(0xFF2C2C2C)),
                   ),
-                ),
-                onPressed: () {
-                  // 这里添加发送重置密码邮件的逻辑
+                ),                onPressed: () {
+                  if (_emailController.text.trim().isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please enter your email address'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+                  
                   context.read<AuthenticationBloc>().add(
                     AuthenticationResetPasswordRequested(
-                      email: _emailController.text,
-                    ),
-                  );
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Reset password email sent!'),
-                      backgroundColor: Color(0xFFFFA500),
+                      email: _emailController.text.trim(),
                     ),
                   );
                 },

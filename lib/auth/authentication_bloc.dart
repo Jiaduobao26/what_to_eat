@@ -65,6 +65,7 @@ class AuthenticationState extends Equatable {
   final bool isGuest;
   final bool isGuestLoggedIn;
   final String? error;
+  final String? successMessage;
   final bool isLoading;
 
   const AuthenticationState._({
@@ -72,6 +73,7 @@ class AuthenticationState extends Equatable {
     this.isGuest = false,
     this.isGuestLoggedIn = false,
     this.error,
+    this.successMessage,
     this.isLoading = false,
   });
 
@@ -82,9 +84,11 @@ class AuthenticationState extends Equatable {
   const AuthenticationState.loading() : this._(isLoggedIn: false, isGuest: false, isLoading: true);
   const AuthenticationState.error(String message) 
       : this._(isLoggedIn: false, isGuest: false, error: message);
+  const AuthenticationState.success(String message) 
+      : this._(isLoggedIn: false, isGuest: false, successMessage: message);
 
   @override
-  List<Object?> get props => [isLoggedIn, isGuest, isGuestLoggedIn, error, isLoading];
+  List<Object?> get props => [isLoggedIn, isGuest, isGuestLoggedIn, error, successMessage, isLoading];
 }
 
 // Bloc
@@ -115,8 +119,7 @@ class AuthenticationBloc extends Bloc<AuthenticationEvent, AuthenticationState> 
           } else {
             // Other registration errors
             rethrow;
-          }
-        }
+          }        }
         
         // 3. Handle successful account creation
         if (userCredential != null) {
@@ -188,14 +191,12 @@ class AuthenticationBloc extends Bloc<AuthenticationEvent, AuthenticationState> 
       // Keep guestHasCompletedSetup to avoid showing preference choose again
       await FirebaseAuth.instance.signOut();
       emit(const AuthenticationState.unauthenticated());
-    });
-
-    on<AuthenticationResetPasswordRequested>((event, emit) async {
+    });    on<AuthenticationResetPasswordRequested>((event, emit) async {
       emit(const AuthenticationState.loading());
       try {
         // Send password reset email using Firebase Auth
         await FirebaseAuth.instance.sendPasswordResetEmail(email: event.email);
-        emit(const AuthenticationState.error('Password reset email sent successfully! Please check your email inbox.'));
+        emit(const AuthenticationState.success('Password reset email sent successfully! Please check your email inbox.'));
       } on FirebaseAuthException catch (e) {
         String errorMessage;
         switch (e.code) {
