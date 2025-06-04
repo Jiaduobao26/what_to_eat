@@ -15,6 +15,7 @@ import 'package:provider/provider.dart';
 import '../utils/distance_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/local_properties_service.dart';
+import '../screens/restaurant_detail_screen.dart';
 
 class Lists extends StatelessWidget {
   final Function(List<Map<String, dynamic>>)? onRestaurantsChanged;
@@ -792,474 +793,491 @@ class _GoogleRestaurantCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: imageUrl != null
-                  ? Image.network(
-                      imageUrl,
-                      width: 93,
-                      height: 93,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const Icon(Icons.broken_image, size: 60, color: Colors.grey),
-                    )
-                  : const SizedBox(
-                      width: 93,
-                      height: 93,
-                      child: Icon(Icons.image, size: 60, color: Colors.grey),
-                    ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: 16,
-                      fontFamily: 'Roboto',
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Row(
-                    children: [
-                      Text(
-                        rating,
-                        style: const TextStyle(
-                          color: Color(0xFF79747E),
-                          fontSize: 12,
-                          fontFamily: 'Roboto',
-                        ),
+      child: InkWell(
+        onTap: () {
+          final placeId = info['place_id'];
+          if (placeId != null) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => RestaurantDetailScreen(
+                  placeId: placeId,
+                  initialName: name,
+                ),
+              ),
+            );
+          }
+        },
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: imageUrl != null
+                    ? Image.network(
+                        imageUrl,
+                        width: 93,
+                        height: 93,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(Icons.broken_image, size: 60, color: Colors.grey),
+                      )
+                    : const SizedBox(
+                        width: 93,
+                        height: 93,
+                        child: Icon(Icons.image, size: 60, color: Colors.grey),
                       ),
-                      const SizedBox(width: 5),
-                      const Icon(Icons.star, color: Color(0xFFFFA500), size: 16),
-                    ],
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    address,
-                    style: const TextStyle(
-                      color: Color(0xFF79747E),
-                      fontSize: 12,
-                      fontFamily: 'Roboto',
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 16,
+                        fontFamily: 'Roboto',
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (cuisineTypes.isNotEmpty) ...[
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 5),
                     Row(
                       children: [
-                        const Icon(
-                          Icons.restaurant_menu,
-                          size: 14,
-                          color: Color(0xFFE95322),
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            cuisineTypes,
-                            style: const TextStyle(
-                              color: Color(0xFFE95322),
-                              fontSize: 11,
-                              fontFamily: 'Roboto',
-                              fontWeight: FontWeight.w500,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                        Text(
+                          rating,
+                          style: const TextStyle(
+                            color: Color(0xFF79747E),
+                            fontSize: 12,
+                            fontFamily: 'Roboto',
                           ),
                         ),
+                        const SizedBox(width: 5),
+                        const Icon(Icons.star, color: Color(0xFFFFA500), size: 16),
                       ],
                     ),
-                  ],
-                  // Distance display
-                  if (restaurantLat != null && restaurantLng != null) ...[
-                    const SizedBox(height: 4),
-                    Consumer<NearbyRestaurantProvider>(
-                      builder: (context, provider, child) {
-                        final distance = DistanceUtils.calculateDistance(
-                          provider.lat,
-                          provider.lng,
-                          restaurantLat.toDouble(),
-                          restaurantLng.toDouble(),
-                        );
-                        return Row(
-                          children: [
-                            const Icon(
-                              Icons.location_on,
-                              size: 14,
-                              color: Color(0xFF6B7280),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              distance,
+                    const SizedBox(height: 5),
+                    Text(
+                      address,
+                      style: const TextStyle(
+                        color: Color(0xFF79747E),
+                        fontSize: 12,
+                        fontFamily: 'Roboto',
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (cuisineTypes.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.restaurant_menu,
+                            size: 14,
+                            color: Color(0xFFE95322),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              cuisineTypes,
                               style: const TextStyle(
-                                color: Color(0xFF6B7280),
+                                color: Color(0xFFE95322),
                                 fontSize: 11,
                                 fontFamily: 'Roboto',
-                                fontWeight: FontWeight.w400,
+                                fontWeight: FontWeight.w500,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ],
-                        );
-                      },
-                    ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    // Distance display
+                    if (restaurantLat != null && restaurantLng != null) ...[
+                      const SizedBox(height: 4),
+                      Consumer<NearbyRestaurantProvider>(
+                        builder: (context, provider, child) {
+                          final distance = DistanceUtils.calculateDistance(
+                            provider.lat,
+                            provider.lng,
+                            restaurantLat.toDouble(),
+                            restaurantLng.toDouble(),
+                          );
+                          return Row(
+                            children: [
+                              const Icon(
+                                Icons.location_on,
+                                size: 14,
+                                color: Color(0xFF6B7280),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                distance,
+                                style: const TextStyle(
+                                  color: Color(0xFF6B7280),
+                                  fontSize: 11,
+                                  fontFamily: 'Roboto',
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ],
                   ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    icon: Transform.rotate(
+                      angle: 1.5708, // 90 degrees in radians
+                      child: const Icon(Icons.navigation, color: Color(0xFFE95322)),
+                    ),
+                    onPressed: () {
+                      showModalBottomSheet(
+                        context: context,
+                        backgroundColor: Colors.transparent,
+                        builder: (context) => MapPopup(
+                          onAppleMapSelected: () {
+                            // 处理 Apple Map 选择
+                            print('Apple Map selected');
+                          },
+                          onGoogleMapSelected: () {
+                            // 处理 Google Map 选择
+                            print('Google Map selected');
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.more_vert, color: Color(0xFF391713)),
+                    onPressed: () async {
+                      final user = FirebaseAuth.instance.currentUser;
+                      final placeId = info['place_id'] ?? '';
+                      final cuisine = (info['types'] != null && info['types'].isNotEmpty) ? info['types'][0] : '';
+                      
+                      bool likedRestaurant = false;
+                      bool dislikedRestaurant = false;
+                      bool likedCuisine = false;
+                      bool dislikedCuisine = false;
+                      
+                      // Check preferences for both authenticated and guest users
+                      if (user != null) {
+                        likedRestaurant = await _isLikedRestaurant(user.uid, placeId);
+                        dislikedRestaurant = await _isDislikedRestaurant(user.uid, placeId);
+                        likedCuisine = await _isLikedCuisine(user.uid, cuisine);
+                        dislikedCuisine = await _isDislikedCuisine(user.uid, cuisine);
+                      } else {
+                        // Guest user - pass empty string as userId, functions handle guest logic internally
+                        likedRestaurant = await _isLikedRestaurant('', placeId);
+                        dislikedRestaurant = await _isDislikedRestaurant('', placeId);
+                        likedCuisine = await _isLikedCuisine('', cuisine);
+                        dislikedCuisine = await _isDislikedCuisine('', cuisine);
+                      }
+
+                      if (!context.mounted) return;
+                      showDialog(
+                        context: context,
+                        builder: (context) => ListDialog(
+                          initialRestaurantLiked: likedRestaurant,
+                          initialRestaurantDisliked: dislikedRestaurant,
+                          initialCuisineLiked: likedCuisine,
+                          initialCuisineDisliked: dislikedCuisine,
+                          onLikeRestaurant: () async {
+                            final user = FirebaseAuth.instance.currentUser;
+                            if (info['place_id'] != null && info['name'] != null) {
+                              if (user != null) {
+                                // Authenticated user - save to Firebase
+                                final repo = UserPreferenceRepository();
+                                final pref = await repo.fetchPreference(user.uid) ?? 
+                                    pref_models.Preference(userId: user.uid);
+                                
+                                // 创建餐厅信息对象
+                                final restaurantInfo = pref_models.RestaurantInfo(
+                                  id: info['place_id'],
+                                  name: info['name'],
+                                  address: info['vicinity'],
+                                  lat: info['geometry']?['location']?['lat']?.toDouble(),
+                                  lng: info['geometry']?['location']?['lng']?.toDouble(),
+                                  types: (info['types'] as List?)?.map((e) => e.toString()).toList(),
+                                );
+                                
+                                // 添加到喜欢列表，从不喜欢列表移除
+                                final updatedLiked = List<pref_models.RestaurantInfo>.from(pref.likedRestaurants);
+                                final updatedDisliked = List<pref_models.RestaurantInfo>.from(pref.dislikedRestaurants);
+                                
+                                // 移除重复项
+                                updatedLiked.removeWhere((r) => r.id == restaurantInfo.id);
+                                updatedDisliked.removeWhere((r) => r.id == restaurantInfo.id);
+                                
+                                // 添加到喜欢列表
+                                updatedLiked.add(restaurantInfo);
+                                
+                                final updatedPref = pref_models.Preference(
+                                  userId: user.uid,
+                                  likedRestaurants: updatedLiked,
+                                  dislikedRestaurants: updatedDisliked,
+                                  likedCuisines: pref.likedCuisines,
+                                  dislikedCuisines: pref.dislikedCuisines,
+                                );
+                                
+                                await repo.setPreference(updatedPref);
+                              } else {
+                                // Guest user - save to SharedPreferences
+                                final prefs = await SharedPreferences.getInstance();
+                                final restaurantInfo = pref_models.RestaurantInfo(
+                                  id: info['place_id'],
+                                  name: info['name'],
+                                  address: info['vicinity'],
+                                  lat: info['geometry']?['location']?['lat']?.toDouble(),
+                                  lng: info['geometry']?['location']?['lng']?.toDouble(),
+                                  
+                                  types: (info['types'] as List?)?.map((e) => e.toString()).toList(),
+                                );
+                                
+                                // Get current preferences
+                                final likedRestaurantsStr = prefs.getStringList('guest_liked_restaurants') ?? [];
+                                final dislikedRestaurantsStr = prefs.getStringList('guest_disliked_restaurants') ?? [];
+                                
+                                // Parse existing data
+                                final likedRestaurants = <pref_models.RestaurantInfo>[];
+                                final dislikedRestaurants = <pref_models.RestaurantInfo>[];
+                                
+                                for (final str in likedRestaurantsStr) {
+                                  try {
+                                    final map = jsonDecode(str) as Map<String, dynamic>;
+                                    likedRestaurants.add(pref_models.RestaurantInfo.fromMap(map));
+                                  } catch (e) {
+                                    likedRestaurants.add(pref_models.RestaurantInfo(id: str, name: str));
+                                  }
+                                }
+                                
+                                for (final str in dislikedRestaurantsStr) {
+                                  try {
+                                    final map = jsonDecode(str) as Map<String, dynamic>;
+                                    dislikedRestaurants.add(pref_models.RestaurantInfo.fromMap(map));
+                                  } catch (e) {
+                                    dislikedRestaurants.add(pref_models.RestaurantInfo(id: str, name: str));
+                                  }
+                                }
+                                
+                                // Remove from both lists first
+                                likedRestaurants.removeWhere((r) => r.id == restaurantInfo.id);
+                                dislikedRestaurants.removeWhere((r) => r.id == restaurantInfo.id);
+                                
+                                // Add to liked list
+                                likedRestaurants.add(restaurantInfo);
+                                
+                                // Save back to SharedPreferences
+                                await prefs.setStringList('guest_liked_restaurants', 
+                                    likedRestaurants.map((r) => jsonEncode(r.toMap())).toList());
+                                await prefs.setStringList('guest_disliked_restaurants', 
+                                    dislikedRestaurants.map((r) => jsonEncode(r.toMap())).toList());
+                              }
+                              
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Added to liked restaurants')),
+                              );
+                            }
+                          },
+                          onDislikeRestaurant: () async {
+                            final user = FirebaseAuth.instance.currentUser;
+                            if (info['place_id'] != null && info['name'] != null) {
+                              if (user != null) {
+                                // Authenticated user - save to Firebase
+                                final repo = UserPreferenceRepository();
+                                final pref = await repo.fetchPreference(user.uid) ?? 
+                                    pref_models.Preference(userId: user.uid);
+                                
+                                // 创建餐厅信息对象
+                                final restaurantInfo = pref_models.RestaurantInfo(
+                                  id: info['place_id'],
+                                  name: info['name'],
+                                  address: info['vicinity'],
+                                  lat: info['geometry']?['location']?['lat']?.toDouble(),
+                                  lng: info['geometry']?['location']?['lng']?.toDouble(),
+                                  
+                                  types: (info['types'] as List?)?.map((e) => e.toString()).toList(),
+                                );
+                                
+                                // 添加到不喜欢列表，从喜欢列表移除
+                                final updatedLiked = List<pref_models.RestaurantInfo>.from(pref.likedRestaurants);
+                                final updatedDisliked = List<pref_models.RestaurantInfo>.from(pref.dislikedRestaurants);
+                                
+                                // 移除重复项
+                                updatedLiked.removeWhere((r) => r.id == restaurantInfo.id);
+                                updatedDisliked.removeWhere((r) => r.id == restaurantInfo.id);
+                                
+                                // 添加到不喜欢列表
+                                updatedDisliked.add(restaurantInfo);
+                                
+                                final updatedPref = pref_models.Preference(
+                                  userId: user.uid,
+                                  likedRestaurants: updatedLiked,
+                                  dislikedRestaurants: updatedDisliked,
+                                  likedCuisines: pref.likedCuisines,
+                                  dislikedCuisines: pref.dislikedCuisines,
+                                );
+                                
+                                await repo.setPreference(updatedPref);
+                              } else {
+                                // Guest user - save to SharedPreferences
+                                final prefs = await SharedPreferences.getInstance();
+                                final restaurantInfo = pref_models.RestaurantInfo(
+                                  id: info['place_id'],
+                                  name: info['name'],
+                                  address: info['vicinity'],
+                                  lat: info['geometry']?['location']?['lat']?.toDouble(),
+                                  lng: info['geometry']?['location']?['lng']?.toDouble(),
+                                  
+                                  types: (info['types'] as List?)?.map((e) => e.toString()).toList(),
+                                );
+                                
+                                // Get current preferences
+                                final likedRestaurantsStr = prefs.getStringList('guest_liked_restaurants') ?? [];
+                                final dislikedRestaurantsStr = prefs.getStringList('guest_disliked_restaurants') ?? [];
+                                
+                                // Parse existing data
+                                final likedRestaurants = <pref_models.RestaurantInfo>[];
+                                final dislikedRestaurants = <pref_models.RestaurantInfo>[];
+                                
+                                for (final str in likedRestaurantsStr) {
+                                  try {
+                                    final map = jsonDecode(str) as Map<String, dynamic>;
+                                    likedRestaurants.add(pref_models.RestaurantInfo.fromMap(map));
+                                  } catch (e) {
+                                    likedRestaurants.add(pref_models.RestaurantInfo(id: str, name: str));
+                                  }
+                                }
+                                
+                                for (final str in dislikedRestaurantsStr) {
+                                  try {
+                                    final map = jsonDecode(str) as Map<String, dynamic>;
+                                    dislikedRestaurants.add(pref_models.RestaurantInfo.fromMap(map));
+                                  } catch (e) {
+                                    dislikedRestaurants.add(pref_models.RestaurantInfo(id: str, name: str));
+                                  }
+                                }
+                                
+                                // Remove from both lists first
+                                likedRestaurants.removeWhere((r) => r.id == restaurantInfo.id);
+                                dislikedRestaurants.removeWhere((r) => r.id == restaurantInfo.id);
+                                
+                                // Add to disliked list
+                                dislikedRestaurants.add(restaurantInfo);
+                                
+                                // Save back to SharedPreferences
+                                await prefs.setStringList('guest_liked_restaurants', 
+                                    likedRestaurants.map((r) => jsonEncode(r.toMap())).toList());
+                                await prefs.setStringList('guest_disliked_restaurants', 
+                                    dislikedRestaurants.map((r) => jsonEncode(r.toMap())).toList());
+                              }
+                              
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Added to disliked restaurants')),
+                              );
+                            }
+                          },
+                          onLikeCuisine: () async {
+                            final user = FirebaseAuth.instance.currentUser;
+                            if (info['types'] != null && info['types'].isNotEmpty) {
+                              if (user != null) {
+                                // Authenticated user - save to Firebase
+                                final repo = UserPreferenceRepository();
+                                await repo.updatePreferenceField(
+                                  user.uid,
+                                  {
+                                    'likedCuisines': FieldValue.arrayUnion([info['types'][0]]),
+                                    'dislikedCuisines': FieldValue.arrayRemove([info['types'][0]]),
+                                  },
+                                );
+                              } else {
+                                // Guest user - save to SharedPreferences
+                                final prefs = await SharedPreferences.getInstance();
+                                final likedCuisines = prefs.getStringList('guest_liked_cuisines') ?? [];
+                                final dislikedCuisines = prefs.getStringList('guest_disliked_cuisines') ?? [];
+                                
+                                final cuisine = info['types'][0] as String;
+                                
+                                // Remove from disliked if exists
+                                dislikedCuisines.remove(cuisine);
+                                
+                                // Add to liked if not already there
+                                if (!likedCuisines.contains(cuisine)) {
+                                  likedCuisines.add(cuisine);
+                                }
+                                
+                                await prefs.setStringList('guest_liked_cuisines', likedCuisines);
+                                await prefs.setStringList('guest_disliked_cuisines', dislikedCuisines);
+                              }
+                              
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Added to liked cuisines')),
+                              );
+                            }
+                          },
+                          onDislikeCuisine: () async {
+                            final user = FirebaseAuth.instance.currentUser;
+                            if (info['types'] != null && info['types'].isNotEmpty) {
+                              if (user != null) {
+                                // Authenticated user - save to Firebase
+                                final repo = UserPreferenceRepository();
+                                await repo.updatePreferenceField(
+                                  user.uid,
+                                  {
+                                    'dislikedCuisines': FieldValue.arrayUnion([info['types'][0]]),
+                                    'likedCuisines': FieldValue.arrayRemove([info['types'][0]]),
+                                  },
+                                );
+                              } else {
+                                // Guest user - save to SharedPreferences
+                                final prefs = await SharedPreferences.getInstance();
+                                final likedCuisines = prefs.getStringList('guest_liked_cuisines') ?? [];
+                                final dislikedCuisines = prefs.getStringList('guest_disliked_cuisines') ?? [];
+                                
+                                final cuisine = info['types'][0] as String;
+                                
+                                // Remove from liked if exists
+                                likedCuisines.remove(cuisine);
+                                
+                                // Add to disliked if not already there
+                                if (!dislikedCuisines.contains(cuisine)) {
+                                  dislikedCuisines.add(cuisine);
+                                }
+                                
+                                await prefs.setStringList('guest_liked_cuisines', likedCuisines);
+                                await prefs.setStringList('guest_disliked_cuisines', dislikedCuisines);
+                              }
+                              
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Added to disliked cuisines')),
+                              );
+                            }
+                          },
+                          onCancel: () {
+                            print('Cancel');
+                          },
+                          onConfirm: () {
+                            print('Confirm');
+                          },
+                          description: 'You can mark this restaurant or cuisine as liked or disliked. This will help us improve your recommendations.',
+                        ),
+                      );
+                    },
+                  ),
                 ],
               ),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                IconButton(
-                  icon: Transform.rotate(
-                    angle: 1.5708, // 90 degrees in radians
-                    child: const Icon(Icons.navigation, color: Color(0xFFE95322)),
-                  ),
-                  onPressed: () {
-                    showModalBottomSheet(
-                      context: context,
-                      backgroundColor: Colors.transparent,
-                      builder: (context) => MapPopup(
-                        onAppleMapSelected: () {
-                          // 处理 Apple Map 选择
-                          print('Apple Map selected');
-                        },
-                        onGoogleMapSelected: () {
-                          // 处理 Google Map 选择
-                          print('Google Map selected');
-                        },
-                      ),
-                    );
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(Icons.more_vert, color: Color(0xFF391713)),
-                  onPressed: () async {
-                    final user = FirebaseAuth.instance.currentUser;
-                    final placeId = info['place_id'] ?? '';
-                    final cuisine = (info['types'] != null && info['types'].isNotEmpty) ? info['types'][0] : '';
-                    
-                    bool likedRestaurant = false;
-                    bool dislikedRestaurant = false;
-                    bool likedCuisine = false;
-                    bool dislikedCuisine = false;
-                    
-                    // Check preferences for both authenticated and guest users
-                    if (user != null) {
-                      likedRestaurant = await _isLikedRestaurant(user.uid, placeId);
-                      dislikedRestaurant = await _isDislikedRestaurant(user.uid, placeId);
-                      likedCuisine = await _isLikedCuisine(user.uid, cuisine);
-                      dislikedCuisine = await _isDislikedCuisine(user.uid, cuisine);
-                    } else {
-                      // Guest user - pass empty string as userId, functions handle guest logic internally
-                      likedRestaurant = await _isLikedRestaurant('', placeId);
-                      dislikedRestaurant = await _isDislikedRestaurant('', placeId);
-                      likedCuisine = await _isLikedCuisine('', cuisine);
-                      dislikedCuisine = await _isDislikedCuisine('', cuisine);
-                    }
-
-                    if (!context.mounted) return;
-                    showDialog(
-                      context: context,
-                      builder: (context) => ListDialog(
-                        initialRestaurantLiked: likedRestaurant,
-                        initialRestaurantDisliked: dislikedRestaurant,
-                        initialCuisineLiked: likedCuisine,
-                        initialCuisineDisliked: dislikedCuisine,
-                        onLikeRestaurant: () async {
-                          final user = FirebaseAuth.instance.currentUser;
-                          if (info['place_id'] != null && info['name'] != null) {
-                            if (user != null) {
-                              // Authenticated user - save to Firebase
-                              final repo = UserPreferenceRepository();
-                              final pref = await repo.fetchPreference(user.uid) ?? 
-                                  pref_models.Preference(userId: user.uid);
-                              
-                              // 创建餐厅信息对象
-                              final restaurantInfo = pref_models.RestaurantInfo(
-                                id: info['place_id'],
-                                name: info['name'],
-                                address: info['vicinity'],
-                                lat: info['geometry']?['location']?['lat']?.toDouble(),
-                                lng: info['geometry']?['location']?['lng']?.toDouble(),
-                                types: (info['types'] as List?)?.map((e) => e.toString()).toList(),
-                              );
-                              
-                              // 添加到喜欢列表，从不喜欢列表移除
-                              final updatedLiked = List<pref_models.RestaurantInfo>.from(pref.likedRestaurants);
-                              final updatedDisliked = List<pref_models.RestaurantInfo>.from(pref.dislikedRestaurants);
-                              
-                              // 移除重复项
-                              updatedLiked.removeWhere((r) => r.id == restaurantInfo.id);
-                              updatedDisliked.removeWhere((r) => r.id == restaurantInfo.id);
-                              
-                              // 添加到喜欢列表
-                              updatedLiked.add(restaurantInfo);
-                              
-                              final updatedPref = pref_models.Preference(
-                                userId: user.uid,
-                                likedRestaurants: updatedLiked,
-                                dislikedRestaurants: updatedDisliked,
-                                likedCuisines: pref.likedCuisines,
-                                dislikedCuisines: pref.dislikedCuisines,
-                              );
-                              
-                              await repo.setPreference(updatedPref);
-                            } else {
-                              // Guest user - save to SharedPreferences
-                              final prefs = await SharedPreferences.getInstance();
-                              final restaurantInfo = pref_models.RestaurantInfo(
-                                id: info['place_id'],
-                                name: info['name'],
-                                address: info['vicinity'],
-                                lat: info['geometry']?['location']?['lat']?.toDouble(),
-                                lng: info['geometry']?['location']?['lng']?.toDouble(),
-                                
-                                types: (info['types'] as List?)?.map((e) => e.toString()).toList(),
-                              );
-                              
-                              // Get current preferences
-                              final likedRestaurantsStr = prefs.getStringList('guest_liked_restaurants') ?? [];
-                              final dislikedRestaurantsStr = prefs.getStringList('guest_disliked_restaurants') ?? [];
-                              
-                              // Parse existing data
-                              final likedRestaurants = <pref_models.RestaurantInfo>[];
-                              final dislikedRestaurants = <pref_models.RestaurantInfo>[];
-                              
-                              for (final str in likedRestaurantsStr) {
-                                try {
-                                  final map = jsonDecode(str) as Map<String, dynamic>;
-                                  likedRestaurants.add(pref_models.RestaurantInfo.fromMap(map));
-                                } catch (e) {
-                                  likedRestaurants.add(pref_models.RestaurantInfo(id: str, name: str));
-                                }
-                              }
-                              
-                              for (final str in dislikedRestaurantsStr) {
-                                try {
-                                  final map = jsonDecode(str) as Map<String, dynamic>;
-                                  dislikedRestaurants.add(pref_models.RestaurantInfo.fromMap(map));
-                                } catch (e) {
-                                  dislikedRestaurants.add(pref_models.RestaurantInfo(id: str, name: str));
-                                }
-                              }
-                              
-                              // Remove from both lists first
-                              likedRestaurants.removeWhere((r) => r.id == restaurantInfo.id);
-                              dislikedRestaurants.removeWhere((r) => r.id == restaurantInfo.id);
-                              
-                              // Add to liked list
-                              likedRestaurants.add(restaurantInfo);
-                              
-                              // Save back to SharedPreferences
-                              await prefs.setStringList('guest_liked_restaurants', 
-                                  likedRestaurants.map((r) => jsonEncode(r.toMap())).toList());
-                              await prefs.setStringList('guest_disliked_restaurants', 
-                                  dislikedRestaurants.map((r) => jsonEncode(r.toMap())).toList());
-                            }
-                            
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Added to liked restaurants')),
-                            );
-                          }
-                        },
-                        onDislikeRestaurant: () async {
-                          final user = FirebaseAuth.instance.currentUser;
-                          if (info['place_id'] != null && info['name'] != null) {
-                            if (user != null) {
-                              // Authenticated user - save to Firebase
-                              final repo = UserPreferenceRepository();
-                              final pref = await repo.fetchPreference(user.uid) ?? 
-                                  pref_models.Preference(userId: user.uid);
-                              
-                              // 创建餐厅信息对象
-                              final restaurantInfo = pref_models.RestaurantInfo(
-                                id: info['place_id'],
-                                name: info['name'],
-                                address: info['vicinity'],
-                                lat: info['geometry']?['location']?['lat']?.toDouble(),
-                                lng: info['geometry']?['location']?['lng']?.toDouble(),
-                                
-                                types: (info['types'] as List?)?.map((e) => e.toString()).toList(),
-                              );
-                              
-                              // 添加到不喜欢列表，从喜欢列表移除
-                              final updatedLiked = List<pref_models.RestaurantInfo>.from(pref.likedRestaurants);
-                              final updatedDisliked = List<pref_models.RestaurantInfo>.from(pref.dislikedRestaurants);
-                              
-                              // 移除重复项
-                              updatedLiked.removeWhere((r) => r.id == restaurantInfo.id);
-                              updatedDisliked.removeWhere((r) => r.id == restaurantInfo.id);
-                              
-                              // 添加到不喜欢列表
-                              updatedDisliked.add(restaurantInfo);
-                              
-                              final updatedPref = pref_models.Preference(
-                                userId: user.uid,
-                                likedRestaurants: updatedLiked,
-                                dislikedRestaurants: updatedDisliked,
-                                likedCuisines: pref.likedCuisines,
-                                dislikedCuisines: pref.dislikedCuisines,
-                              );
-                              
-                              await repo.setPreference(updatedPref);
-                            } else {
-                              // Guest user - save to SharedPreferences
-                              final prefs = await SharedPreferences.getInstance();
-                              final restaurantInfo = pref_models.RestaurantInfo(
-                                id: info['place_id'],
-                                name: info['name'],
-                                address: info['vicinity'],
-                                lat: info['geometry']?['location']?['lat']?.toDouble(),
-                                lng: info['geometry']?['location']?['lng']?.toDouble(),
-                                
-                                types: (info['types'] as List?)?.map((e) => e.toString()).toList(),
-                              );
-                              
-                              // Get current preferences
-                              final likedRestaurantsStr = prefs.getStringList('guest_liked_restaurants') ?? [];
-                              final dislikedRestaurantsStr = prefs.getStringList('guest_disliked_restaurants') ?? [];
-                              
-                              // Parse existing data
-                              final likedRestaurants = <pref_models.RestaurantInfo>[];
-                              final dislikedRestaurants = <pref_models.RestaurantInfo>[];
-                              
-                              for (final str in likedRestaurantsStr) {
-                                try {
-                                  final map = jsonDecode(str) as Map<String, dynamic>;
-                                  likedRestaurants.add(pref_models.RestaurantInfo.fromMap(map));
-                                } catch (e) {
-                                  likedRestaurants.add(pref_models.RestaurantInfo(id: str, name: str));
-                                }
-                              }
-                              
-                              for (final str in dislikedRestaurantsStr) {
-                                try {
-                                  final map = jsonDecode(str) as Map<String, dynamic>;
-                                  dislikedRestaurants.add(pref_models.RestaurantInfo.fromMap(map));
-                                } catch (e) {
-                                  dislikedRestaurants.add(pref_models.RestaurantInfo(id: str, name: str));
-                                }
-                              }
-                              
-                              // Remove from both lists first
-                              likedRestaurants.removeWhere((r) => r.id == restaurantInfo.id);
-                              dislikedRestaurants.removeWhere((r) => r.id == restaurantInfo.id);
-                              
-                              // Add to disliked list
-                              dislikedRestaurants.add(restaurantInfo);
-                              
-                              // Save back to SharedPreferences
-                              await prefs.setStringList('guest_liked_restaurants', 
-                                  likedRestaurants.map((r) => jsonEncode(r.toMap())).toList());
-                              await prefs.setStringList('guest_disliked_restaurants', 
-                                  dislikedRestaurants.map((r) => jsonEncode(r.toMap())).toList());
-                            }
-                            
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Added to disliked restaurants')),
-                            );
-                          }
-                        },
-                        onLikeCuisine: () async {
-                          final user = FirebaseAuth.instance.currentUser;
-                          if (info['types'] != null && info['types'].isNotEmpty) {
-                            if (user != null) {
-                              // Authenticated user - save to Firebase
-                              final repo = UserPreferenceRepository();
-                              await repo.updatePreferenceField(
-                                user.uid,
-                                {
-                                  'likedCuisines': FieldValue.arrayUnion([info['types'][0]]),
-                                  'dislikedCuisines': FieldValue.arrayRemove([info['types'][0]]),
-                                },
-                              );
-                            } else {
-                              // Guest user - save to SharedPreferences
-                              final prefs = await SharedPreferences.getInstance();
-                              final likedCuisines = prefs.getStringList('guest_liked_cuisines') ?? [];
-                              final dislikedCuisines = prefs.getStringList('guest_disliked_cuisines') ?? [];
-                              
-                              final cuisine = info['types'][0] as String;
-                              
-                              // Remove from disliked if exists
-                              dislikedCuisines.remove(cuisine);
-                              
-                              // Add to liked if not already there
-                              if (!likedCuisines.contains(cuisine)) {
-                                likedCuisines.add(cuisine);
-                              }
-                              
-                              await prefs.setStringList('guest_liked_cuisines', likedCuisines);
-                              await prefs.setStringList('guest_disliked_cuisines', dislikedCuisines);
-                            }
-                            
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Added to liked cuisines')),
-                            );
-                          }
-                        },
-                        onDislikeCuisine: () async {
-                          final user = FirebaseAuth.instance.currentUser;
-                          if (info['types'] != null && info['types'].isNotEmpty) {
-                            if (user != null) {
-                              // Authenticated user - save to Firebase
-                              final repo = UserPreferenceRepository();
-                              await repo.updatePreferenceField(
-                                user.uid,
-                                {
-                                  'dislikedCuisines': FieldValue.arrayUnion([info['types'][0]]),
-                                  'likedCuisines': FieldValue.arrayRemove([info['types'][0]]),
-                                },
-                              );
-                            } else {
-                              // Guest user - save to SharedPreferences
-                              final prefs = await SharedPreferences.getInstance();
-                              final likedCuisines = prefs.getStringList('guest_liked_cuisines') ?? [];
-                              final dislikedCuisines = prefs.getStringList('guest_disliked_cuisines') ?? [];
-                              
-                              final cuisine = info['types'][0] as String;
-                              
-                              // Remove from liked if exists
-                              likedCuisines.remove(cuisine);
-                              
-                              // Add to disliked if not already there
-                              if (!dislikedCuisines.contains(cuisine)) {
-                                dislikedCuisines.add(cuisine);
-                              }
-                              
-                              await prefs.setStringList('guest_liked_cuisines', likedCuisines);
-                              await prefs.setStringList('guest_disliked_cuisines', dislikedCuisines);
-                            }
-                            
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Added to disliked cuisines')),
-                            );
-                          }
-                        },
-                        onCancel: () {
-                          print('Cancel');
-                        },
-                        onConfirm: () {
-                          print('Confirm');
-                        },
-                        description: 'You can mark this restaurant or cuisine as liked or disliked. This will help us improve your recommendations.',
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
