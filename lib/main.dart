@@ -71,7 +71,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
-/// 我们把启动动画和路由放到同一个 StatefulWidget 里
+/// Combine splash animation and routing in the same StatefulWidget
 class MyRouterApp extends StatefulWidget {
   const MyRouterApp({super.key});
 
@@ -87,22 +87,22 @@ class _MyRouterAppState extends State<MyRouterApp>
   late final Animation<double> _logoRotation;
   late final Animation<double> _logoOpacity;
   late final Animation<double> _overlayOpacity;
-  bool _showSplash = true; // 用来控制是否展示启动页
+  bool _showSplash = true; // Controls whether to show splash screen
 
   @override
   void initState() {
     super.initState();
-    print('🚀 MyRouterApp initState - 开始初始化启动动画');
+    print('🚀 MyRouterApp initState - Starting splash animation initialization');
     final authBloc = context.read<AuthenticationBloc>();
     _appRouter = AppRouter(authBloc: authBloc);
 
-    // 2. 创建动画控制器：增加动画时长确保可见
+    // 2. Create animation controller: Increase duration for loading time
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2500), // 增加到2.5秒
+      duration: const Duration(milliseconds: 4000), // Increased to 4 seconds
     );
     
-    // 缩放动画：从0到1.2再回到1.0
+    // Scale animation: from 0 to 1.2 then back to 1.0
     _logoScale = TweenSequence([
       TweenSequenceItem(
         tween: Tween<double>(begin: 0.0, end: 1.2)
@@ -118,64 +118,74 @@ class _MyRouterAppState extends State<MyRouterApp>
 
     _logoRotation = Tween<double>(
       begin: 0.0,
-      end: 4 * 3.14159, // 增加旋转，更明显
+      end: 4 * 3.14159, // Increase rotation for more visibility
     ).animate(CurvedAnimation(
       parent: _animController,
       curve: Curves.easeOutCubic,
     ));
 
-    // 透明度动画
+    // Opacity animation - Extended display time
     _logoOpacity = TweenSequence([
       TweenSequenceItem(
         tween: Tween<double>(begin: 0.0, end: 1.0),
-        weight: 30.0,
+        weight: 30.0, // Reduce fade-in time
       ),
       TweenSequenceItem(
         tween: ConstantTween<double>(1.0),
-        weight: 50.0,
+        weight: 70.0, // Increase display time
       ),
       TweenSequenceItem(
         tween: Tween<double>(begin: 1.0, end: 0.0),
-        weight: 20.0,
+        weight: 20.0, // Reduce fade-out time
       ),
     ]).animate(_animController);
 
-    // 覆盖层透明度动画
+    // Overlay opacity animation - Longer display time
     _overlayOpacity = TweenSequence([
       TweenSequenceItem(
         tween: ConstantTween<double>(1.0),
-        weight: 80.0,
+        weight: 90.0, // Increase overlay display time
       ),
       TweenSequenceItem(
         tween: Tween<double>(begin: 1.0, end: 0.0)
             .chain(CurveTween(curve: Curves.easeOut)),
-        weight: 20.0,
+        weight: 20.0, // Quick fade-out
       ),
     ]).animate(_animController);
 
     _animController.addStatusListener((status) {
-      print('🎬 动画状态变化: $status');
+      print('🎬 Animation status changed: $status');
       if (status == AnimationStatus.completed) {
-        print('✅ 启动动画完成，隐藏启动页');
+        print('✅ Splash animation completed, hiding splash screen');
         setState(() => _showSplash = false);
       }
     });
 
-    // 4. 动画开始
-    print('🎬 开始启动动画...');
+    // 4. Start animation
+    print('🎬 Starting splash animation...');
     _animController.forward();
 
-    // 5. 剩余初始化逻辑：注册 BLoC 观察，预加载数据，检查通知权限
+    // 5. Remaining initialization logic: register BLoC observer, preload data, check notification permissions
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      print('📱 Starting background initialization...');
+      
+      // Authentication check
+      print('🔐 Checking user authentication status...');
       authBloc.add(AuthenticationCheckGuestStatusRequested());
       
-      // preload restaurant data
+      // Preload restaurant data
+      print('🍽️ Starting restaurant data preload...');
       final restaurantProvider = context.read<NearbyRestaurantProvider>();
-      restaurantProvider.preloadRestaurants();
+      restaurantProvider.preloadRestaurants().then((_) {
+        print('✅ Restaurant data preload completed');
+      }).catchError((e) {
+        print('❌ Restaurant data preload failed: $e');
+      });
       
-      // Check notification permissions after a short delay
-      Future.delayed(const Duration(seconds: 2), () {
+      // Delay notification permission check to give other initialization more time
+      Future.delayed(const Duration(seconds: 3), () {
         if (mounted) {
+          print('🔔 Checking notification permissions...');
           _checkNotificationPermissions();
         }
       });
@@ -188,7 +198,7 @@ class _MyRouterAppState extends State<MyRouterApp>
     super.dispose();
   }
 
-  /// 弹出通知权限的对话框
+  /// Show notification permission dialog
   Future<void> _checkNotificationPermissions() async {
     try {
       bool isGranted = await FCMService().isNotificationPermissionGranted();
@@ -275,7 +285,7 @@ class _MyRouterAppState extends State<MyRouterApp>
 
   @override
   Widget build(BuildContext context) {
-    // 改为非阻塞方式：始终渲染主应用，用覆盖层显示启动动画
+    // Non-blocking approach: always render main app, use overlay to show splash animation
     return BlocListener<AuthenticationBloc, AuthenticationState>(
       listenWhen: (previous, current) => previous.isLoggedIn != current.isLoggedIn,
       listener: (context, state) {
@@ -288,12 +298,12 @@ class _MyRouterAppState extends State<MyRouterApp>
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         ),
         builder: (context, child) {
-          // 如果需要显示启动动画，在主应用上层显示覆盖层
+          // Show splash animation overlay if needed
           return Stack(
             children: [
-              // 主应用内容（始终存在，不被阻塞）
+              // Main app content (always exists, not blocked)
               child ?? const SizedBox(),
-              // 启动动画覆盖层（可以消失）
+              // Splash animation overlay (can disappear)
               if (_showSplash)
                 Positioned.fill(
                   child: AnimatedBuilder(
@@ -325,7 +335,7 @@ class _MyRouterAppState extends State<MyRouterApp>
                                     ),
                                     child: Image.asset(
                                       'assets/icon/app_icon.png',
-                                      width: 150, // 增加图标大小
+                                      width: 150, // Increase icon size
                                       height: 150,
                                     ),
                                   ),
