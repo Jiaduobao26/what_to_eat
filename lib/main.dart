@@ -84,6 +84,8 @@ class _MyRouterAppState extends State<MyRouterApp>
   late final AppRouter _appRouter;
   late final AnimationController _animController;
   late final Animation<double> _logoScale;
+  late final Animation<double> _logoRotation;
+  late final Animation<double> _logoOpacity;
   bool _showSplash = true; // 用来控制是否展示启动页
 
   @override
@@ -95,16 +97,44 @@ class _MyRouterAppState extends State<MyRouterApp>
     // 2. 创建动画控制器：持续 2 秒的缩放
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 2),
+      duration: const Duration(seconds: 3),
     );
-    _logoScale = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animController, curve: Curves.easeOutBack),
-    );
+    // 缩放动画：从0到1.2再回到1.0
+    _logoScale = TweenSequence([
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 0.0, end: 1.2)
+            .chain(CurveTween(curve: Curves.easeOut)),
+        weight: 60.0,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.2, end: 1.0)
+            .chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 40.0,
+      ),
+    ]).animate(_animController);
 
-    // 3. 监听动画完成事件：等动画跑完再隐藏启动页
+    _logoRotation = Tween<double>(
+      begin: 0.0,
+      end: 4 * 3.14159,
+    ).animate(CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeOutCubic,
+    ));
+
+    // 透明度动画
+    _logoOpacity = TweenSequence([
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 0.0, end: 1.0),
+        weight: 30.0,
+      ),
+      TweenSequenceItem(
+        tween: ConstantTween<double>(1.0),
+        weight: 70.0,
+      ),
+    ]).animate(_animController);
+
     _animController.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
-        // 动画结束后保留 500ms 缓冲，然后隐藏 splash
         Future.delayed(const Duration(milliseconds: 500), () {
           setState(() => _showSplash = false);
         });
@@ -231,10 +261,36 @@ class _MyRouterAppState extends State<MyRouterApp>
         home: Scaffold(
           backgroundColor: Colors.white,
           body: Center(
-            child: ScaleTransition(
-              scale: _logoScale,
-              // 这里把 FlutterLogo 换成你自己的 “开机图” 即可
-              child: Image.asset('assets/icon/app_icon.png'),
+            child: AnimatedBuilder(
+              animation: _animController,
+              builder: (context, child) {
+                return Transform.rotate(
+                  angle: _logoRotation.value,
+                  child: FadeTransition(
+                    opacity: _logoOpacity,
+                    child: ScaleTransition(
+                      scale: _logoScale,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 10,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        child: Image.asset(
+                          'assets/icon/app_icon.png',
+                          width: 150,
+                          height: 150,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ),
