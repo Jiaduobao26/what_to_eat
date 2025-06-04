@@ -734,6 +734,9 @@ class _PreferenceRestaurantCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final imageUrl = restaurant.photoRef != null
+        ? 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${restaurant.photoRef}&key=你的API_KEY'
+        : null;
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -741,7 +744,24 @@ class _PreferenceRestaurantCard extends StatelessWidget {
         padding: const EdgeInsets.all(10),
         child: Row(
           children: [
-            // Remove image display, only show text info
+            ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: imageUrl != null
+                  ? Image.network(
+                      imageUrl,
+                      width: 93,
+                      height: 93,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const Icon(Icons.broken_image, size: 60, color: Colors.grey),
+                    )
+                  : const SizedBox(
+                      width: 93,
+                      height: 93,
+                      child: Icon(Icons.image, size: 60, color: Colors.grey),
+                    ),
+            ),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -749,33 +769,83 @@ class _PreferenceRestaurantCard extends StatelessWidget {
                   Text(
                     restaurant.name,
                     style: const TextStyle(
-                      color: Color(0xFF391713),
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                      fontSize: 16,
+                      fontFamily: 'Roboto',
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                  if (restaurant.address != null)
+                  if (restaurant.address != null) ...[
+                    const SizedBox(height: 5),
                     Text(
                       restaurant.address!,
                       style: const TextStyle(
-                        color: Colors.grey,
-                        fontSize: 14,
+                        color: Color(0xFF79747E),
+                        fontSize: 12,
+                        fontFamily: 'Roboto',
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  if (restaurant.types != null && restaurant.types!.isNotEmpty)
-                    Text(
-                      restaurant.types!.join(', '),
-                      style: const TextStyle(
-                        color: Colors.grey,
-                        fontSize: 14,
-                      ),
+                  ],
+                  if (restaurant.types != null && restaurant.types!.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.restaurant_menu,
+                          size: 14,
+                          color: Color(0xFFE95322),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            restaurant.types!.join('、'),
+                            style: const TextStyle(
+                              color: Color(0xFFE95322),
+                              fontSize: 11,
+                              fontFamily: 'Roboto',
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
+                  ],
                 ],
               ),
             ),
-            IconButton(
-              icon: Icon(isLiked ? Icons.favorite : Icons.delete, color: isLiked ? Colors.red : Colors.grey),
-              onPressed: () => onRemove(restaurant.id, isLiked),
+            const SizedBox(width: 10),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  icon: Transform.rotate(
+                    angle: 1.5708,
+                    child: const Icon(Icons.navigation, color: Color(0xFFE95322)),
+                  ),
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: context,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => MapPopup(
+                        onAppleMapSelected: () {
+                          // 处理 Apple Map 选择
+                        },
+                        onGoogleMapSelected: () {
+                          // 处理 Google Map 选择
+                        },
+                      ),
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete, color: Color(0xFF391713)),
+                  onPressed: () => onRemove(restaurant.id, isLiked),
+                ),
+              ],
             ),
           ],
         ),

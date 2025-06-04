@@ -755,6 +755,11 @@ class _GoogleRestaurantCard extends StatelessWidget {
       if (cuisineFromName.isNotEmpty) cuisineFromName,
       if (cuisineFromTypes.isNotEmpty) cuisineFromTypes,
     ].take(2).join(' • ');
+      final photoRef = (info['photos'] != null && info['photos'].isNotEmpty)
+        ? info['photos'][0]['photo_reference']
+        : null;    final imageUrl = photoRef != null && apiKey != null
+        ? 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=$photoRef&key=$apiKey'
+        : null;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -763,6 +768,24 @@ class _GoogleRestaurantCard extends StatelessWidget {
         padding: const EdgeInsets.all(10),
         child: Row(
           children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: imageUrl != null
+                  ? Image.network(
+                      imageUrl,
+                      width: 93,
+                      height: 93,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const Icon(Icons.broken_image, size: 60, color: Colors.grey),
+                    )
+                  : const SizedBox(
+                      width: 93,
+                      height: 93,
+                      child: Icon(Icons.image, size: 60, color: Colors.grey),
+                    ),
+            ),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -770,27 +793,97 @@ class _GoogleRestaurantCard extends StatelessWidget {
                   Text(
                     name,
                     style: const TextStyle(
-                      color: Color(0xFF391713),
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                      fontSize: 16,
+                      fontFamily: 'Roboto',
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                  if (address.isNotEmpty)
-                    Text(
-                      address,
-                      style: const TextStyle(
-                        color: Colors.grey,
-                        fontSize: 14,
+                  const SizedBox(height: 5),
+                  Row(
+                    children: [
+                      Text(
+                        rating,
+                        style: const TextStyle(
+                          color: Color(0xFF79747E),
+                          fontSize: 12,
+                          fontFamily: 'Roboto',
+                        ),
                       ),
+                      const SizedBox(width: 5),
+                      const Icon(Icons.star, color: Color(0xFFFFA500), size: 16),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    address,
+                    style: const TextStyle(
+                      color: Color(0xFF79747E),
+                      fontSize: 12,
+                      fontFamily: 'Roboto',
                     ),
-                  if (types.isNotEmpty)
-                    Text(
-                      types.join(', '),
-                      style: const TextStyle(
-                        color: Colors.grey,
-                        fontSize: 14,
-                      ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (cuisineTypes.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.restaurant_menu,
+                          size: 14,
+                          color: Color(0xFFE95322),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            cuisineTypes,
+                            style: const TextStyle(
+                              color: Color(0xFFE95322),
+                              fontSize: 11,
+                              fontFamily: 'Roboto',
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
+                  ],
+                  // Distance display
+                  if (restaurantLat != null && restaurantLng != null) ...[
+                    const SizedBox(height: 4),
+                    Consumer<NearbyRestaurantProvider>(
+                      builder: (context, provider, child) {
+                        final distance = DistanceUtils.calculateDistance(
+                          provider.lat,
+                          provider.lng,
+                          restaurantLat.toDouble(),
+                          restaurantLng.toDouble(),
+                        );
+                        return Row(
+                          children: [
+                            const Icon(
+                              Icons.location_on,
+                              size: 14,
+                              color: Color(0xFF6B7280),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              distance,
+                              style: const TextStyle(
+                                color: Color(0xFF6B7280),
+                                fontSize: 11,
+                                fontFamily: 'Roboto',
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -870,6 +963,7 @@ class _GoogleRestaurantCard extends StatelessWidget {
                                 address: info['vicinity'],
                                 lat: info['geometry']?['location']?['lat']?.toDouble(),
                                 lng: info['geometry']?['location']?['lng']?.toDouble(),
+                                photoRef: (info['photos'] != null && info['photos'].isNotEmpty) ? info['photos'][0]['photo_reference'] : null,
                                 types: (info['types'] as List?)?.map((e) => e.toString()).toList(),
                               );
                               
@@ -902,6 +996,7 @@ class _GoogleRestaurantCard extends StatelessWidget {
                                 address: info['vicinity'],
                                 lat: info['geometry']?['location']?['lat']?.toDouble(),
                                 lng: info['geometry']?['location']?['lng']?.toDouble(),
+                                photoRef: (info['photos'] != null && info['photos'].isNotEmpty) ? info['photos'][0]['photo_reference'] : null,
                                 types: (info['types'] as List?)?.map((e) => e.toString()).toList(),
                               );
                               
@@ -966,6 +1061,7 @@ class _GoogleRestaurantCard extends StatelessWidget {
                                 address: info['vicinity'],
                                 lat: info['geometry']?['location']?['lat']?.toDouble(),
                                 lng: info['geometry']?['location']?['lng']?.toDouble(),
+                                photoRef: (info['photos'] != null && info['photos'].isNotEmpty) ? info['photos'][0]['photo_reference'] : null,
                                 types: (info['types'] as List?)?.map((e) => e.toString()).toList(),
                               );
                               
@@ -998,6 +1094,7 @@ class _GoogleRestaurantCard extends StatelessWidget {
                                 address: info['vicinity'],
                                 lat: info['geometry']?['location']?['lat']?.toDouble(),
                                 lng: info['geometry']?['location']?['lng']?.toDouble(),
+                                photoRef: (info['photos'] != null && info['photos'].isNotEmpty) ? info['photos'][0]['photo_reference'] : null,
                                 types: (info['types'] as List?)?.map((e) => e.toString()).toList(),
                               );
                               
