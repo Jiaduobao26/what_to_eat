@@ -115,6 +115,13 @@ class FetchRestaurantEvent extends WheelEvent {
   @override
   List<Object?> get props => [keyword, nearbyList];
 }
+class SetSelectedRestaurantEvent extends WheelEvent {
+  final Restaurant restaurant;
+  const SetSelectedRestaurantEvent(this.restaurant);
+
+  @override
+  List<Object?> get props => [restaurant];
+}
 
 class WheelBloc extends Bloc<WheelEvent, WheelState> {
   final _random = Random();
@@ -170,6 +177,7 @@ class WheelBloc extends Bloc<WheelEvent, WheelState> {
     on<InitializeWithPreferencesEvent>(_onInitializeWithPreferences);
     on<InitializeDefaultEvent>(_onInitializeDefault);
     on<FetchRestaurantEvent>(_onFetchRestaurant);
+    on<SetSelectedRestaurantEvent>(_onSetSelectedRestaurant);
   }  Future<void> _loadCuisines() async {
     final jsonStr = await rootBundle.loadString('assets/cuisines.json');
     final data = json.decode(jsonStr);
@@ -267,29 +275,53 @@ class WheelBloc extends Bloc<WheelEvent, WheelState> {
     try {
       final localList = event.nearbyList ?? [];
       print('Nearby list count: \\${localList.length}');
-      final filtered = localList.where((r) => (r['types'] as List?)?.contains(event.keyword) ?? false).toList();
-      print('Filtered count for \\${event.keyword}: \\${filtered.length}');
-      if (filtered.isNotEmpty) {
-        final random = Random().nextInt(filtered.length);
-        final selected = filtered[random];
-        print('Selected from local: \\${selected['name']}');
-        final restaurant = Restaurant(
-          name: selected['name'] ?? 'Unknown',
-          cuisine: event.keyword,
-          rating: (selected['rating'] as num?)?.toDouble() ?? 0.0,
-          address: selected['vicinity'] ?? 'Unknown address',
-          imageUrl: getPhotoUrl(selected),
-          lat: (selected['geometry']?['location']?['lat'] as num?)?.toDouble() ?? 0.0,
-          lng: (selected['geometry']?['location']?['lng'] as num?)?.toDouble() ?? 0.0,
+      
+      // 改进的菜系匹配逻辑，与DiceWheel保持一致
+      final matchingRestaurants = localList.where((restaurant) {
+        final types = restaurant['types'] as List<dynamic>? ?? [];
+        return types.any((type) => 
+          type.toString().toLowerCase().contains(event.keyword.toLowerCase()) ||
+          event.keyword.toLowerCase().contains(type.toString().toLowerCase())
         );
-        emit(state.copyWith(
-          selectedRestaurant: restaurant,
-          loadingRestaurant: false,
-          showResult: true,
-        ));
-        return;
+      }).toList();
+      
+      print('Matched restaurants for \\${event.keyword}: \\${matchingRestaurants.length}');
+      
+      if (matchingRestaurants.isNotEmpty) {
+        // 应用用户偏好过滤 - 普通转盘只过滤餐厅ID，不过滤菜系
+        final filteredRestaurants = await _filterDislikedRestaurants(
+          matchingRestaurants, 
+          onlyFilterRestaurantIds: true, // 普通转盘模式：只过滤特定餐厅，不过滤菜系
+        );
+        print('After preference filtering: \\${filteredRestaurants.length}');
+        
+        if (filteredRestaurants.isNotEmpty) {
+          final random = Random().nextInt(filteredRestaurants.length);
+          final selected = filteredRestaurants[random];
+          print('Selected from local: \\${selected['name']}');
+          final restaurant = Restaurant(
+            name: selected['name'] ?? 'Unknown',
+            cuisine: _formatCuisineDisplay(selected['types'] as List<dynamic>? ?? []),
+            rating: (selected['rating'] as num?)?.toDouble() ?? 0.0,
+            address: selected['vicinity'] ?? 'Unknown address',
+            imageUrl: getPhotoUrl(selected),
+            lat: (selected['geometry']?['location']?['lat'] as num?)?.toDouble() ?? 0.0,
+            lng: (selected['geometry']?['location']?['lng'] as num?)?.toDouble() ?? 0.0,
+          );
+          emit(state.copyWith(
+            selectedRestaurant: restaurant,
+            loadingRestaurant: false,
+            showResult: true,
+          ));
+          return;
+        } else {
+          print('All nearby restaurants filtered out by preferences, using Google API...');
+        }
+      } else {
+        print('No nearby match for \\${event.keyword}, using Google API...');
       }
-      print('No local match, using Google API...');
+      
+      // 回退到Google API搜索
       final restaurant = await fetchRestaurantByCuisine(event.keyword);
       print('Google API result: \\${restaurant.name}');
       emit(state.copyWith(
@@ -379,5 +411,148 @@ class WheelBloc extends Bloc<WheelEvent, WheelState> {
     if (optionsJson == null) return [];
     final List<dynamic> decoded = jsonDecode(optionsJson);
     return decoded.map((e) => Option(name: e['name'], keyword: e['keyword'])).toList();
+  }
+
+  // 直接设置选中的餐厅，用于preference模式
+  Future<void> _onSetSelectedRestaurant(
+      SetSelectedRestaurantEvent event, Emitter<WheelState> emit) async {
+    print('🎯 Setting selected restaurant directly: ${event.restaurant.name}');
+    emit(state.copyWith(
+      selectedRestaurant: event.restaurant,
+      loadingRestaurant: false,
+      showResult: true,
+    ));
+  }
+  
+  // 过滤不喜欢的餐厅和菜系
+  Future<List<Map<String, dynamic>>> _filterDislikedRestaurants(
+    List<Map<String, dynamic>> restaurants, {
+    bool onlyFilterRestaurantIds = false, // 新参数：是否只过滤餐厅ID
+  }) async {
+    try {
+      List<String> dislikedRestaurantIds = [];
+      List<String> dislikedCuisines = [];
+      
+      final user = FirebaseAuth.instance.currentUser;
+      
+      if (user != null) {
+        // 登录用户
+        final repo = UserPreferenceRepository();
+        final pref = await repo.fetchPreference(user.uid);
+        if (pref != null) {
+          dislikedRestaurantIds = pref.dislikedRestaurantIds;
+          if (!onlyFilterRestaurantIds) {
+            dislikedCuisines = pref.dislikedCuisines;
+          }
+        }
+      } else {
+        // 游客用户
+        final prefs = await SharedPreferences.getInstance();
+        if (!onlyFilterRestaurantIds) {
+          dislikedCuisines = prefs.getStringList('guest_disliked_cuisines') ?? [];
+        }
+        final dislikedRestaurantsStr = prefs.getStringList('guest_disliked_restaurants') ?? [];
+        dislikedRestaurantIds = dislikedRestaurantsStr.map((str) {
+          try {
+            final map = json.decode(str) as Map<String, dynamic>;
+            return map['id'] as String;
+          } catch (e) {
+            return str; // 回退到旧格式
+          }
+        }).toList();
+      }
+
+      print('🚫 Disliked restaurant IDs: $dislikedRestaurantIds');
+      if (!onlyFilterRestaurantIds) {
+        print('🚫 Disliked cuisines: $dislikedCuisines');
+      } else {
+        print('ℹ️ Only filtering restaurant IDs (wheel mode)');
+      }
+      
+      final filteredRestaurants = restaurants.where((restaurant) {
+        final placeId = restaurant['place_id'] as String? ?? '';
+        final types = restaurant['types'] as List<dynamic>? ?? [];
+        final restaurantName = restaurant['name'] ?? '';
+        
+        // 总是检查是否是不喜欢的餐厅ID
+        if (dislikedRestaurantIds.contains(placeId)) {
+          print('🚫 Filtered out restaurant by ID: $restaurantName');
+          return false;
+        }
+        
+        // 只在非wheel模式下检查菜系类型
+        if (!onlyFilterRestaurantIds) {
+          for (final type in types) {
+            final typeStr = type.toString().toLowerCase();
+            for (final dislikedCuisine in dislikedCuisines) {
+              final dislikedLower = dislikedCuisine.toLowerCase();
+              if (typeStr.contains(dislikedLower) || dislikedLower.contains(typeStr)) {
+                print('🚫 Filtered out restaurant by cuisine: $restaurantName (type: $typeStr, disliked: $dislikedCuisine)');
+                return false;
+              }
+            }
+          }
+        }
+        
+        return true;
+      }).toList();
+      
+      print('📊 Filter results: ${restaurants.length} → ${filteredRestaurants.length}');
+      return filteredRestaurants;
+    } catch (e) {
+      print('❌ Error filtering restaurants: $e');
+      return restaurants;
+    }
+  }
+  
+  // 格式化菜系类型显示
+  String _formatCuisineDisplay(List<dynamic> types) {
+    if (types.isEmpty) return 'Restaurant';
+    
+    // 尝试找到最有意义的类型
+    for (final type in types) {
+      final typeStr = type.toString();
+      switch (typeStr) {
+        case 'chinese_restaurant':
+          return 'Chinese';
+        case 'japanese_restaurant':
+          return 'Japanese';
+        case 'korean_restaurant':
+          return 'Korean';
+        case 'italian_restaurant':
+          return 'Italian';
+        case 'mexican_restaurant':
+          return 'Mexican';
+        case 'indian_restaurant':
+          return 'Indian';
+        case 'thai_restaurant':
+          return 'Thai';
+        case 'vietnamese_restaurant':
+          return 'Vietnamese';
+        case 'french_restaurant':
+          return 'French';
+        case 'american_restaurant':
+          return 'American';
+        case 'pizza_restaurant':
+          return 'Pizza';
+        case 'seafood_restaurant':
+          return 'Seafood';
+        case 'bakery':
+          return 'Bakery';
+        case 'cafe':
+          return 'Cafe';
+        case 'bar':
+          return 'Bar';
+        default:
+          if (typeStr != 'restaurant' && typeStr != 'establishment' && 
+              typeStr != 'food' && typeStr != 'point_of_interest') {
+            return typeStr.replaceAll('_', ' ').split(' ').map((word) => 
+              word.isNotEmpty ? word[0].toUpperCase() + word.substring(1) : word
+            ).join(' ');
+          }
+      }
+    }
+    
+    return 'Restaurant';
   }
 }
