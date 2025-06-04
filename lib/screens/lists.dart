@@ -963,7 +963,6 @@ class _GoogleRestaurantCard extends StatelessWidget {
                                 address: info['vicinity'],
                                 lat: info['geometry']?['location']?['lat']?.toDouble(),
                                 lng: info['geometry']?['location']?['lng']?.toDouble(),
-                                photoRef: (info['photos'] != null && info['photos'].isNotEmpty) ? info['photos'][0]['photo_reference'] : null,
                                 types: (info['types'] as List?)?.map((e) => e.toString()).toList(),
                               );
                               
@@ -996,7 +995,7 @@ class _GoogleRestaurantCard extends StatelessWidget {
                                 address: info['vicinity'],
                                 lat: info['geometry']?['location']?['lat']?.toDouble(),
                                 lng: info['geometry']?['location']?['lng']?.toDouble(),
-                                photoRef: (info['photos'] != null && info['photos'].isNotEmpty) ? info['photos'][0]['photo_reference'] : null,
+                                
                                 types: (info['types'] as List?)?.map((e) => e.toString()).toList(),
                               );
                               
@@ -1061,7 +1060,7 @@ class _GoogleRestaurantCard extends StatelessWidget {
                                 address: info['vicinity'],
                                 lat: info['geometry']?['location']?['lat']?.toDouble(),
                                 lng: info['geometry']?['location']?['lng']?.toDouble(),
-                                photoRef: (info['photos'] != null && info['photos'].isNotEmpty) ? info['photos'][0]['photo_reference'] : null,
+                                
                                 types: (info['types'] as List?)?.map((e) => e.toString()).toList(),
                               );
                               
@@ -1094,7 +1093,7 @@ class _GoogleRestaurantCard extends StatelessWidget {
                                 address: info['vicinity'],
                                 lat: info['geometry']?['location']?['lat']?.toDouble(),
                                 lng: info['geometry']?['location']?['lng']?.toDouble(),
-                                photoRef: (info['photos'] != null && info['photos'].isNotEmpty) ? info['photos'][0]['photo_reference'] : null,
+                                
                                 types: (info['types'] as List?)?.map((e) => e.toString()).toList(),
                               );
                               

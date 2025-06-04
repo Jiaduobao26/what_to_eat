@@ -734,9 +734,6 @@ class _PreferenceRestaurantCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = restaurant.photoRef != null
-        ? 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${restaurant.photoRef}&key=你的API_KEY'
-        : null;
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -744,22 +741,19 @@ class _PreferenceRestaurantCard extends StatelessWidget {
         padding: const EdgeInsets.all(10),
         child: Row(
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: imageUrl != null
-                  ? Image.network(
-                      imageUrl,
-                      width: 93,
-                      height: 93,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const Icon(Icons.broken_image, size: 60, color: Colors.grey),
-                    )
-                  : const SizedBox(
-                      width: 93,
-                      height: 93,
-                      child: Icon(Icons.image, size: 60, color: Colors.grey),
-                    ),
+            // 移除图片显示部分，只保留一个图标占位
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.restaurant,
+                size: 30,
+                color: Colors.grey,
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(
