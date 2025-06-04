@@ -756,13 +756,6 @@ class _GoogleRestaurantCard extends StatelessWidget {
       if (cuisineFromTypes.isNotEmpty) cuisineFromTypes,
     ].take(2).join(' • ');
 
-    final photoRef = (info['photos'] != null && info['photos'].isNotEmpty)
-        ? info['photos'][0]['photo_reference']
-        : null;
-    final imageUrl = photoRef != null && apiKey != null
-        ? 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=$photoRef&key=$apiKey'
-        : null;
-
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -770,24 +763,6 @@ class _GoogleRestaurantCard extends StatelessWidget {
         padding: const EdgeInsets.all(10),
         child: Row(
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: imageUrl != null
-                  ? Image.network(
-                      imageUrl,
-                      width: 93,
-                      height: 93,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const Icon(Icons.broken_image, size: 60, color: Colors.grey),
-                    )
-                  : const SizedBox(
-                      width: 93,
-                      height: 93,
-                      child: Icon(Icons.image, size: 60, color: Colors.grey),
-                    ),
-            ),
-            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
