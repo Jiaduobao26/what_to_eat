@@ -3,6 +3,7 @@ import 'package:bloc/bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/fcm_service.dart';
 
 // Events
 abstract class AuthenticationEvent extends Equatable {
@@ -177,6 +178,14 @@ class AuthenticationBloc extends Bloc<AuthenticationEvent, AuthenticationState> 
         }
         
         emit(const AuthenticationState.authenticated());
+        
+        // Send welcome notification after successful login
+        try {
+          await FCMService().showWelcomeNotification();
+        } catch (e) {
+          // Don't fail login if notification fails
+          print('Failed to send welcome notification: $e');
+        }
       } on FirebaseAuthException catch (e) {
         emit(AuthenticationState.error(e.message ?? "Login failed"));
       } catch (e) {

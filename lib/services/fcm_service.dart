@@ -19,7 +19,7 @@ class FCMService {
     _localNotifications = FlutterLocalNotificationsPlugin();
 
     // Initialize local notifications
-    const AndroidInitializationSettings androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const AndroidInitializationSettings androidInit = AndroidInitializationSettings('ic_notification');
     const DarwinInitializationSettings iosInit = DarwinInitializationSettings();
     const InitializationSettings initSettings = InitializationSettings(android: androidInit, iOS: iosInit);
     await _localNotifications.initialize(initSettings);
@@ -311,8 +311,24 @@ class FCMService {
         channelDescription: 'Channel used for Firebase foreground notifications',
         importance: Importance.high,
         priority: Priority.high,
+        icon: 'ic_notification', 
+        // largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'), 
+        showWhen: true,
+        enableVibration: true,
+        enableLights: true,
+        color: const Color(0xFFE95322), // 应用主题色
       );
-      const NotificationDetails details = NotificationDetails(android: androidDetails);
+      
+      const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+      
+      const NotificationDetails details = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
 
       await _localNotifications.show(
         notification.hashCode,
@@ -328,6 +344,51 @@ class FCMService {
     } catch (e) {
       if (kDebugMode) {
         print('❌ Error showing local notification: $e');
+      }
+    }
+  }
+
+  // Method to show welcome notification on login success
+  Future<void> showWelcomeNotification() async {
+    try {
+      const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+        'high_importance_channel',
+        'Default Notifications',
+        channelDescription: 'Welcome notifications',
+        importance: Importance.high,
+        priority: Priority.high,
+        icon: 'ic_notification', // 专门的通知图标：状态栏和标题区域显示的白色图标
+        largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'), // 大图标：通知内容区域显示的彩色应用图标
+        showWhen: true,
+        enableVibration: true,
+        enableLights: true,
+        color: const Color(0xFFE95322), // 应用主题色
+      );
+      
+      const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+      
+      const NotificationDetails details = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+
+      await _localNotifications.show(
+        DateTime.now().millisecondsSinceEpoch.remainder(100000),
+        'Welcome to What to Eat! 🎉',
+        'Welcome to What to Eat today, go spinning a wheel! 🎡🍽️',
+        details,
+      );
+      
+      if (kDebugMode) {
+        print('✅ Welcome notification sent successfully');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error showing welcome notification: $e');
       }
     }
   }
