@@ -134,6 +134,7 @@ class WheelBloc extends Bloc<WheelEvent, WheelState> {
     options: []
   )){
      _loadCuisines(); // 加载菜系数据
+     _initializeApiKey(); // 加载API key
     on<ShowResultEvent>((event, emit) {
       emit(state.copyWith(showResult: true));
     });
@@ -187,6 +188,15 @@ class WheelBloc extends Bloc<WheelEvent, WheelState> {
 
     // Trigger initialization event instead of setting state directly
     add(InitializeDefaultEvent());
+  }
+
+  Future<void> _initializeApiKey() async {
+    try {
+      _apiKey = await LocalPropertiesService.getGoogleMapsApiKey();
+      print('🔑 API Key initialized: ${_apiKey?.isNotEmpty == true ? "✅" : "❌"}');
+    } catch (e) {
+      print('❌ Failed to load API key: $e');
+    }
   }
 
   Future<void> _onInitializeDefault(

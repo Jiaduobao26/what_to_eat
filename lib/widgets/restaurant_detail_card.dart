@@ -5,9 +5,42 @@ import '../models/restaurant.dart';
 import '../widgets/dialogs/map_popup.dart';
 import '../widgets/buttons/custom_button_widget.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../services/history_service.dart';
 
 class RestaurantDetailCard extends StatelessWidget {
   const RestaurantDetailCard({super.key});
+
+  // 保存餐厅到历史记录
+  Future<void> _saveToHistory(BuildContext context, Restaurant restaurant) async {
+    try {
+      final historyService = HistoryService();
+      // 尝试从路由或widget树判断source类型
+      // 这里我们默认使用'wheel'，因为这个卡片主要在wheel结果中使用
+      // 如果以后需要更精确的判断，可以通过参数传递
+      await historyService.saveRestaurantHistory(restaurant, 'wheel');
+      
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${restaurant.name} saved to history'),
+            duration: const Duration(seconds: 2),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ Error saving to history: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to save to history'),
+            duration: Duration(seconds: 2),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
   // Convert API types to friendly English display names
   String _formatCuisineType(String cuisine) {
@@ -88,7 +121,7 @@ class RestaurantDetailCard extends StatelessWidget {
           SizedBox(
             height: 120,
             child: Center(
-              child: Image.network(
+              child: apiKey != null ? Image.network(
                 'https://maps.googleapis.com/maps/api/staticmap'
                 '?center=${restaurant.lat},${restaurant.lng}'
                 '&zoom=15'
@@ -97,6 +130,37 @@ class RestaurantDetailCard extends StatelessWidget {
                 '&markers=color:red%7C${restaurant.lat},${restaurant.lng}'
                 '&key=$apiKey',
                 fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  width: double.infinity,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.map, size: 40, color: Colors.grey),
+                      SizedBox(height: 8),
+                      Text('Map not available', style: TextStyle(color: Colors.grey)),
+                    ],
+                  ),
+                ),
+              ) : Container(
+                width: double.infinity,
+                height: 120,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.map, size: 40, color: Colors.grey),
+                    SizedBox(height: 8),
+                    Text('Map loading...', style: TextStyle(color: Colors.grey)),
+                  ],
+                ),
               ),
             ),
           ),
@@ -182,6 +246,8 @@ class RestaurantDetailCard extends StatelessWidget {
                           );
                           if (await canLaunchUrl(uri)) {
                             await launchUrl(uri, mode: LaunchMode.externalApplication);
+                            // 📚 保存到历史记录
+                            await _saveToHistory(context, restaurant);
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text("Couldn't open Apple Maps")),
@@ -196,6 +262,8 @@ class RestaurantDetailCard extends StatelessWidget {
                           );
                           if (await canLaunchUrl(uri)) {
                             await launchUrl(uri, mode: LaunchMode.externalApplication);
+                            // 📚 保存到历史记录
+                            await _saveToHistory(context, restaurant);
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text("Couldn't open Google Maps")),

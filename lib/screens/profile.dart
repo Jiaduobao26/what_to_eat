@@ -199,7 +199,19 @@ class ProfileScreen extends StatelessWidget {
                   );
                 }
               },            ),            const SizedBox(height: 16),
-            _ProfileItem(title: 'History'),
+            _ProfileItem(
+              title: 'History',
+              trailing: 'view',
+              onTap: () {
+                try {
+                  context.push('/history');
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Navigation error: $e')),
+                  );
+                }
+              },
+            ),
             const SizedBox(height: 16),
             _ProfileItem(title: 'Help'),
             const Spacer(),

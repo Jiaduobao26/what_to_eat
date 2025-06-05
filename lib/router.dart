@@ -12,9 +12,10 @@ import 'screens/map.dart';
 import 'screens/profile.dart';
 import 'screens/register_screen.dart';
 import 'screens/forgetpassword_screen.dart';
-import '../screens/main_scaffold.dart';
+import 'screens/main_scaffold.dart';
 import 'screens/preference_manage_screen.dart';
 import 'screens/fcm_test_screen.dart';
+import 'screens/history_screen.dart';
 
 class AppRouter {
   final AuthenticationBloc authBloc;
@@ -79,6 +80,10 @@ class AppRouter {
       GoRoute(
         path: '/preference-manage',
         pageBuilder: (context, state) => buildSlidePage(const PreferenceManageScreen(), state),
+      ),
+      GoRoute(
+        path: '/history',
+        pageBuilder: (context, state) => buildSlidePage(const HistoryScreen(), state),
       ),
       GoRoute(
         path: '/',

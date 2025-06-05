@@ -60,6 +60,15 @@ class AuthenticationCleanupUnverifiedRequested extends AuthenticationEvent {}
 
 class AuthenticationCheckGuestStatusRequested extends AuthenticationEvent {}
 
+class AuthenticationInitialCheckCompleted extends AuthenticationEvent {
+  final bool isAuthenticated;
+
+  const AuthenticationInitialCheckCompleted({required this.isAuthenticated});
+
+  @override
+  List<Object> get props => [isAuthenticated];
+}
+
 // States
 class AuthenticationState extends Equatable {
   final bool isLoggedIn;
@@ -95,6 +104,19 @@ class AuthenticationState extends Equatable {
 // Bloc
 class AuthenticationBloc extends Bloc<AuthenticationEvent, AuthenticationState> {
   AuthenticationBloc() : super(const AuthenticationState.unauthenticated()) {
+    // 检查初始认证状态
+    _checkInitialAuthState();
+    
+    // 监听Firebase Auth状态变化
+    FirebaseAuth.instance.authStateChanges().listen((User? user) {
+      if (user != null && user.emailVerified) {
+        // 用户已登录且邮箱已验证
+        add(AuthenticationInitialCheckCompleted(isAuthenticated: true));
+      } else {
+        // 用户未登录或邮箱未验证，检查guest状态
+        add(AuthenticationInitialCheckCompleted(isAuthenticated: false));
+      }
+    });
     
     on<AuthenticationRegisterRequested>((event, emit) async {
       emit(const AuthenticationState.loading());
@@ -266,5 +288,36 @@ class AuthenticationBloc extends Bloc<AuthenticationEvent, AuthenticationState> 
         emit(const AuthenticationState.unauthenticated());
       }
     });
+
+    on<AuthenticationInitialCheckCompleted>((event, emit) async {
+      if (event.isAuthenticated) {
+        // 清除guest状态，用户已登录
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('guestLoggedIn');
+        emit(const AuthenticationState.authenticated());
+      } else {
+        // 检查guest状态
+        final prefs = await SharedPreferences.getInstance();
+        final isGuestLoggedIn = prefs.getBool('guestLoggedIn') ?? false;
+        
+        if (isGuestLoggedIn) {
+          emit(const AuthenticationState.guestLoggedIn());
+        } else {
+          emit(const AuthenticationState.unauthenticated());
+        }
+      }
+    });
+  }
+
+  Future<void> _checkInitialAuthState() async {
+    // 延迟一下，让Firebase Auth完全初始化
+    await Future.delayed(const Duration(milliseconds: 100));
+    
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && user.emailVerified) {
+      add(const AuthenticationInitialCheckCompleted(isAuthenticated: true));
+    } else {
+      add(const AuthenticationInitialCheckCompleted(isAuthenticated: false));
+    }
   }
 }

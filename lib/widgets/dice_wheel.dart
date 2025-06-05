@@ -150,7 +150,9 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
 
   // Surprise me! 模式 - 完全随机选择
   Future<void> _performSurpriseSelection() async {
-    final nearbyList = Provider.of<NearbyRestaurantProvider>(context, listen: false).restaurants;
+    // 创建列表副本以避免并发修改异常
+    final originalList = Provider.of<NearbyRestaurantProvider>(context, listen: false).restaurants;
+    final nearbyList = List<Map<String, dynamic>>.from(originalList);
     print('Total restaurants from provider: ${nearbyList.length}');
     
     final filteredRestaurants = await _filterDislikedRestaurants(nearbyList);
@@ -335,7 +337,9 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
 
   // 从特定菜系中随机选择餐厅
   Future<void> _selectFromSpecificCuisine(String cuisine) async {
-    final nearbyList = Provider.of<NearbyRestaurantProvider>(context, listen: false).restaurants;
+    // 创建列表副本以避免并发修改异常
+    final originalList = Provider.of<NearbyRestaurantProvider>(context, listen: false).restaurants;
+    final nearbyList = List<Map<String, dynamic>>.from(originalList);
     
     print('🔍 Searching for cuisine: $cuisine in ${nearbyList.length} nearby restaurants');
     
@@ -561,6 +565,8 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
 
   // 过滤不喜欢的餐厅
   Future<List<Map<String, dynamic>>> _filterDislikedRestaurants(List<Map<String, dynamic>> restaurants) async {
+    // 创建输入列表的副本以避免并发修改
+    final restaurantsCopy = List<Map<String, dynamic>>.from(restaurants);
     final user = FirebaseAuth.instance.currentUser;
     
     try {
@@ -593,7 +599,7 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
       print('🚫 Disliked cuisines: $dislikedCuisines');
       print('🚫 Disliked restaurant IDs: $dislikedRestaurantIds');
       
-      final filteredRestaurants = restaurants.where((restaurant) {
+      final filteredRestaurants = restaurantsCopy.where((restaurant) {
         final placeId = restaurant['place_id'] as String? ?? '';
         final types = restaurant['types'] as List<dynamic>? ?? [];
         final restaurantName = restaurant['name'] ?? '';
@@ -628,11 +634,11 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
         return true;
       }).toList();
       
-      print('📊 Filter results: ${restaurants.length} → ${filteredRestaurants.length}');
+      print('📊 Filter results: ${restaurantsCopy.length} → ${filteredRestaurants.length}');
       return filteredRestaurants;
     } catch (e) {
       print('❌ Error filtering restaurants: $e');
-      return restaurants;
+      return restaurantsCopy;
     }
   }
 
