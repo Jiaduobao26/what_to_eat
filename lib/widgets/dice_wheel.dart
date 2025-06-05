@@ -402,7 +402,9 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
       final prefs = await SharedPreferences.getInstance();
       
       final likedCuisines = prefs.getStringList('guest_liked_cuisines') ?? [];
+      final dislikedCuisines = prefs.getStringList('guest_disliked_cuisines') ?? [];
       final likedRestaurantsStr = prefs.getStringList('guest_liked_restaurants') ?? [];
+      final dislikedRestaurantsStr = prefs.getStringList('guest_disliked_restaurants') ?? [];
       
       if (likedCuisines.isEmpty && likedRestaurantsStr.isEmpty) {
         return null;
@@ -417,11 +419,22 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
           return pref_models.RestaurantInfo(id: str, name: str);
         }
       }).toList();
+
+      final dislikedRestaurants = dislikedRestaurantsStr.map((str) {
+        try {
+          final map = json.decode(str) as Map<String, dynamic>;
+          return pref_models.RestaurantInfo.fromMap(map);
+        } catch (e) {
+          return pref_models.RestaurantInfo(id: str, name: str);
+        }
+      }).toList();
       
       return pref_models.Preference(
         userId: 'guest',
         likedCuisines: likedCuisines,
+        dislikedCuisines: dislikedCuisines,
         likedRestaurants: likedRestaurants,
+        dislikedRestaurants: dislikedRestaurants,
       );
     } catch (e) {
       print('Error loading guest preferences: $e');
