@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>CLIENT_ID</key>
+        <string>74109611224-bv9967f5n46jbrgmbe9qif81r82dkj7e.apps.googleusercontent.com</string>
+        <key>REVERSED_CLIENT_ID</key>
+        <string>com.googleusercontent.apps.74109611224-bv9967f5n46jbrgmbe9qif81r82dkj7e</string>
+        <key>API_KEY</key>
+        <string>AIzaSyABI_qP9MYJfIaA36kDlmFzG3eHqX60qgw</string>
+        <key>GCM_SENDER_ID</key>
+        <string>74109611224</string>
+        <key>PLIST_VERSION</key>
+        <string>1</string>
+        <key>BUNDLE_ID</key>
+        <string>com.example.whatToEat</string>
+        <key>PROJECT_ID</key>
+        <string>csen268-s25-g5-6be5f</string>
+        <key>STORAGE_BUCKET</key>
+        <string>csen268-s25-g5-6be5f.firebasestorage.app</string>
+        <key>IS_ADS_ENABLED</key>
+        <false></false>
+        <key>IS_ANALYTICS_ENABLED</key>
+        <false></false>
+        <key>IS_APPINVITE_ENABLED</key>
+        <true></true>
+        <key>IS_GCM_ENABLED</key>
+        <true></true>
+        <key>IS_SIGNIN_ENABLED</key>
+        <true></true>
+        <key>GOOGLE_APP_ID</key>
+        <string>1:74109611224:ios:e7c377c0c4562f583f3bad</string>
+</dict>
+</plist> 
