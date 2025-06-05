@@ -2,11 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import '../../blocs/wheel_bloc.dart';
-import '../../repositories/user_preference_repository.dart';
-import '../../models/preference.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:math';
+import '../../helpers/wheel_option_preference_helper.dart';
 
 class EditWheelOptionsDialog extends StatelessWidget {
   const EditWheelOptionsDialog({super.key});
@@ -15,12 +11,13 @@ class EditWheelOptionsDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = context.watch<WheelBloc>().state;
     return AlertDialog(
+      elevation: 8,
       backgroundColor: const Color(0xFFF5F5F5),
       contentPadding: EdgeInsets.zero,
       content: SingleChildScrollView(
         child: Container(
           width: 350,
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -56,6 +53,7 @@ class EditWheelOptionsDialog extends StatelessWidget {
                         ),
                         padding: const EdgeInsets.symmetric(horizontal: 4),
                         child: DropdownButtonFormField<Option>(
+                          dropdownColor: Color(0xFFF5F5F5),
                           value: state.options[i].keyword.isEmpty ? null : state.options[i],
                           isExpanded: true,
                           decoration: const InputDecoration(
@@ -129,214 +127,24 @@ class EditWheelOptionsDialog extends StatelessWidget {
                   Expanded(
                     child: OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF4CAF50),
-                        side: const BorderSide(color: Color(0xFF4CAF50)),
+                        foregroundColor: Colors.orange,
+                        side: BorderSide(color: Colors.orange),
+                        // foregroundColor: const Color(0xFF4CAF50),
+                        // side: const BorderSide(color: Color(0xFF4CAF50)),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      onPressed: () => _fillWithPreferences(context),
+                      onPressed: () => WheelOptionPreferenceHelper.fillWithPreferences(context),
                       icon: const Icon(Icons.shuffle),
-                      label: const Text('Random preferences'),
+                      label: const Text('Randomize'),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFFE95322),
-                        side: const BorderSide(color: Color(0xFFE95322)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      onPressed: () {
-                        // 检查是否有空选项
-                        final hasEmptyOptions = state.options.any((option) => option.keyword.isEmpty);
-                        if (hasEmptyOptions) {
-                          Fluttertoast.showToast(
-                            msg: "Please select a cuisine for all options before closing.",
-                            toastLength: Toast.LENGTH_LONG,
-                            gravity: ToastGravity.CENTER,
-                            backgroundColor: Colors.red[700],
-                            textColor: Colors.white,
-                            fontSize: 16.0,
-                          );
-                          return;
-                        }
-                        
-                        // 检查是否至少有2个选项
-                        if (state.options.length < 2) {
-                          Fluttertoast.showToast(
-                            msg: "At least 2 options are required for the wheel.",
-                            toastLength: Toast.LENGTH_LONG,
-                            gravity: ToastGravity.CENTER,
-                            backgroundColor: Colors.red[700],
-                            textColor: Colors.white,
-                            fontSize: 16.0,
-                          );
-                          return;
-                        }
-                        
-                        Navigator.of(context).pop();
-                      },
-                      child: const Text('Close'),
-                    ),
-                  ),
-                ],
-              ),
             ],
           ),
         ),
       ),
     );
   }
-  Future<void> _fillWithPreferences(BuildContext context) async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      Preference? preference;
-      
-      if (user == null) {
-        // Guest用户 - 从SharedPreferences加载偏好
-        final prefs = await SharedPreferences.getInstance();
-        final likedCuisines = prefs.getStringList('guest_liked_cuisines') ?? [];
-        final dislikedCuisines = prefs.getStringList('guest_disliked_cuisines') ?? [];
-        
-        if (likedCuisines.isEmpty) {
-          Fluttertoast.showToast(
-            msg: "No liked cuisines found. Please add some preferences first.",
-            toastLength: Toast.LENGTH_SHORT,
-            gravity: ToastGravity.CENTER,
-            backgroundColor: Colors.black87,
-            textColor: Colors.white,
-            fontSize: 16.0,
-          );
-          return;
-        }
-        
-        // 创建临时preference对象
-        preference = Preference(
-          userId: 'guest',
-          likedCuisines: likedCuisines,
-          dislikedCuisines: dislikedCuisines,
-        );
-      } else {
-        // 登录用户 - 从Firebase加载偏好
-        final repo = UserPreferenceRepository();
-        preference = await repo.fetchPreference(user.uid);
-        
-        if (preference == null || preference.likedCuisines.isEmpty) {
-          Fluttertoast.showToast(
-            msg: "No liked cuisines found. Please add some preferences first.",
-            toastLength: Toast.LENGTH_SHORT,
-            gravity: ToastGravity.CENTER,
-            backgroundColor: Colors.black87,
-            textColor: Colors.white,
-            fontSize: 16.0,
-          );
-          return;
-        }
-      }
-
-      final wheelBloc = context.read<WheelBloc>();
-      final allCuisines = wheelBloc.cuisines;
-      final currentOptions = wheelBloc.state.options;
-      
-      // 找到与用户喜欢的菜系匹配的可用菜系
-      final matchedOptions = <Option>[];
-      
-      for (final likedCuisine in preference.likedCuisines) {
-        // 在所有可用菜系中寻找匹配的
-        for (final cuisine in allCuisines) {
-          if (cuisine.keyword == likedCuisine || cuisine.name.toLowerCase() == likedCuisine.toLowerCase()) {
-            // 避免重复添加
-            if (!matchedOptions.any((option) => option.keyword == cuisine.keyword)) {
-              matchedOptions.add(Option(name: cuisine.name, keyword: cuisine.keyword));
-            }
-            break;
-          }
-        }
-      }
-      
-      if (matchedOptions.isEmpty) {
-        Fluttertoast.showToast(
-          msg: "No matching cuisines found in available options.",
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.CENTER,
-          backgroundColor: Colors.black87,
-          textColor: Colors.white,
-          fontSize: 16.0,
-        );
-        return;
-      }
-      
-      // 随机打乱匹配的选项
-      final random = Random();
-      matchedOptions.shuffle(random);
-      
-      // 确保至少有2个选项，如果偏好不够，保留一些现有选项
-      final newOptions = <Option>[];
-      final maxOptions = currentOptions.length;
-      
-      // 先添加随机排序的匹配偏好
-      newOptions.addAll(matchedOptions.take(maxOptions));
-      
-      // 如果偏好选项少于当前选项数量，用现有选项补足
-      if (newOptions.length < maxOptions) {
-        final remainingCount = maxOptions - newOptions.length;
-        final existingOptionsToKeep = currentOptions.where((option) => 
-          option.keyword.isNotEmpty && 
-          !newOptions.any((newOption) => newOption.keyword == option.keyword)
-        ).toList();
-        
-        // 也随机选择现有选项
-        existingOptionsToKeep.shuffle(random);
-        newOptions.addAll(existingOptionsToKeep.take(remainingCount));
-      }
-      
-      // 确保至少有2个选项
-      if (newOptions.length < 2) {
-        // 如果还是不够，从所有菜系中随机选择一些
-        final additionalNeeded = 2 - newOptions.length;
-        final usedKeywords = newOptions.map((opt) => opt.keyword).toSet();
-        final availableOptions = allCuisines
-          .where((cuisine) => !usedKeywords.contains(cuisine.keyword))
-          .toList();
-        
-        // 随机选择可用选项
-        availableOptions.shuffle(random);
-        final selectedOptions = availableOptions
-          .take(additionalNeeded)
-          .map((cuisine) => Option(name: cuisine.name, keyword: cuisine.keyword));
-        
-        newOptions.addAll(selectedOptions);
-      }
-
-      // 逐个更新选项
-      for (int i = 0; i < newOptions.length && i < currentOptions.length; i++) {
-        wheelBloc.add(UpdateOptionEvent(i, newOptions[i].name, newOptions[i].keyword));
-      }
-      
-      final userType = user == null ? "guest" : "logged-in";
-      Fluttertoast.showToast(
-        msg: "Wheel filled with your $userType preferences! (${newOptions.length} options)",
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.CENTER,
-        backgroundColor: Colors.green[700],
-        textColor: Colors.white,
-        fontSize: 16.0,
-      );
-      
-    } catch (e) {
-      print('Error filling with preferences: $e');
-      Fluttertoast.showToast(
-        msg: "Error loading preferences: $e",
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.CENTER,
-        backgroundColor: Colors.red[700],
-        textColor: Colors.white,
-        fontSize: 16.0,
-      );
-    }
-  }
-}
+ }
