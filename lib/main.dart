@@ -1,20 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'auth/authentication_bloc.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'services/nearby_restaurant_provider.dart';
-import 'services/fcm_service.dart';
-import 'services/installation_id_service.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:firebase_analytics/firebase_analytics.dart';
-import 'services/in_app_messaging_service.dart';
 import 'widgets/splash_screen.dart'; // import SplashScreen
 import 'controllers/splash_controller.dart'; // import SplashController
 import 'services/notification_permission_helper.dart'; // import NotificationPermissionHelper
+import 'services/app_initializer.dart'; // import app initializer
 
 /// Top-level function to handle background FCM messages
 @pragma('vm:entry-point')
@@ -30,30 +26,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );  // Set the background message handler early on
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-  // Initialize FCM Service (outputs FCM token)
-  await FCMService().initialize();
-
-  // Initialize Firebase Analytics & IAM
-  await FirebaseAnalytics.instance.logAppOpen();
-  await InAppMessagingService().initialize();
-
-  // Output Installation ID for debugging
-  try {
-    final installationId = await InstallationIdService().getFirebaseInstallationId();
-    if (kDebugMode) {
-      print('🔑 Installation ID: $installationId');
-    }
-  } catch (e) {
-    if (kDebugMode) {
-      print('❌ Error getting Installation ID: $e');
-    }
-  }
-
+  await initializeApp(_firebaseMessagingBackgroundHandler);
   runApp(const MyApp());
 }
 
