@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'services/in_app_messaging_service.dart';
+import 'widgets/splash_screen.dart'; // import SplashScreen
 
 /// Top-level function to handle background FCM messages
 @pragma('vm:entry-point')
@@ -31,14 +32,14 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );  // Set the background message handler early on
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-  
+
   // Initialize FCM Service (outputs FCM token)
   await FCMService().initialize();
-  
+
   // Initialize Firebase Analytics & IAM
   await FirebaseAnalytics.instance.logAppOpen();
   await InAppMessagingService().initialize();
-  
+
   // Output Installation ID for debugging
   try {
     final installationId = await InstallationIdService().getFirebaseInstallationId();
@@ -50,8 +51,8 @@ void main() async {
       print('❌ Error getting Installation ID: $e');
     }
   }
-  
-  runApp(const MyApp());
+
+    runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -79,14 +80,8 @@ class MyRouterApp extends StatefulWidget {
   State<MyRouterApp> createState() => _MyRouterAppState();
 }
 
-class _MyRouterAppState extends State<MyRouterApp>
-    with SingleTickerProviderStateMixin {
+class _MyRouterAppState extends State<MyRouterApp> {
   late final AppRouter _appRouter;
-  late final AnimationController _animController;
-  late final Animation<double> _logoScale;
-  late final Animation<double> _logoRotation;
-  late final Animation<double> _logoOpacity;
-  late final Animation<double> _overlayOpacity;
   bool _showSplash = true; // Controls whether to show splash screen
   bool _dataLoadingComplete = false; // Track when data loading is complete
   double _currentOverlayOpacity = 1.0; // Current overlay opacity for fade-out
@@ -98,48 +93,9 @@ class _MyRouterAppState extends State<MyRouterApp>
     final authBloc = context.read<AuthenticationBloc>();
     _appRouter = AppRouter(authBloc: authBloc);
 
-    // Create animation controller with indefinite repeat for continuous rotation
-    _animController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2000), // Faster rotation cycle
-    );
-    
-    // Scale animation: gentle pulsing effect
-    _logoScale = TweenSequence([
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 1.0, end: 1.1)
-            .chain(CurveTween(curve: Curves.easeInOut)),
-        weight: 50.0,
-      ),
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 1.1, end: 1.0)
-            .chain(CurveTween(curve: Curves.easeInOut)),
-        weight: 50.0,
-      ),
-    ]).animate(_animController);
-
-    // Continuous rotation for loading effect
-    _logoRotation = Tween<double>(
-      begin: 0.0,
-      end: 2 * 3.14159, // One full rotation per cycle
-    ).animate(CurvedAnimation(
-      parent: _animController,
-      curve: Curves.linear, // Linear for smooth continuous rotation
-    ));
-
-    // Logo stays visible during loading
-    _logoOpacity = ConstantTween<double>(1.0).animate(_animController);
-
-    // Overlay stays at full opacity during loading
-    _overlayOpacity = ConstantTween<double>(1.0).animate(_animController);
-
-    // Start continuous rotation animation
-    _animController.repeat();
-    print('🎬 Starting continuous loading animation...');
-
     // Listen to restaurant provider for data loading completion
     final restaurantProvider = context.read<NearbyRestaurantProvider>();
-    
+
     // Add listener to monitor loading state
     void checkLoadingState() {
       if (restaurantProvider.hasLoaded && !_dataLoadingComplete) {
@@ -148,9 +104,9 @@ class _MyRouterAppState extends State<MyRouterApp>
         _finishSplashAnimation();
       }
     }
-    
-    restaurantProvider.addListener(checkLoadingState);
 
+    restaurantProvider.addListener(checkLoadingState);
+    
     // Start background initialization
     WidgetsBinding.instance.addPostFrameCallback((_) {
       print('📱 Starting background initialization...');
@@ -158,7 +114,7 @@ class _MyRouterAppState extends State<MyRouterApp>
       // Authentication check
       print('🔐 Checking user authentication status...');
       authBloc.add(AuthenticationCheckGuestStatusRequested());
-      
+         
       // Preload restaurant data
       print('🍽️ Starting restaurant data preload...');
       restaurantProvider.preloadRestaurants().then((_) {
@@ -185,11 +141,11 @@ class _MyRouterAppState extends State<MyRouterApp>
           _finishSplashAnimation();
         }
       });
-      
+            
       // Delay notification permission check
       Future.delayed(const Duration(seconds: 3), () {
-        if (mounted) {
-          print('🔔 Checking notification permissions...');
+        if (mounted) {          
+          print('🔔 Checking notification permissions...');          
           _checkNotificationPermissions();
         }
       });
@@ -199,29 +155,26 @@ class _MyRouterAppState extends State<MyRouterApp>
   // New method to handle the final animation and hide splash
   void _finishSplashAnimation() {
     if (!mounted) return;
-    
-    // Stop the repeat animation
-    _animController.stop();
-    
+
     // Very fast fade-out animation
     const fadeDuration = Duration(milliseconds: 200); // Much faster
     const fadeSteps = 10; // Much fewer steps
     final stepDuration = Duration(milliseconds: fadeDuration.inMilliseconds ~/ fadeSteps);
-    
+
     int currentStep = 0;
-    
+
     void fadeStep() {
       if (!mounted) return;
-      
+
       currentStep++;
       final progress = currentStep / fadeSteps;
-      
+
       // Use easing curve for smoother appearance
       final easedProgress = progress * progress; // Quadratic easing
       _currentOverlayOpacity = 1.0 - easedProgress;
-      
+
       setState(() {});
-      
+
       if (progress >= 1.0) {
         // Fade complete, hide splash immediately
         setState(() => _showSplash = false);
@@ -230,14 +183,13 @@ class _MyRouterAppState extends State<MyRouterApp>
         Future.delayed(stepDuration, fadeStep);
       }
     }
-    
+
     // Start the fade-out animation immediately
     fadeStep();
   }
 
   @override
   void dispose() {
-    _animController.dispose();
     super.dispose();
   }
 
@@ -331,7 +283,7 @@ class _MyRouterAppState extends State<MyRouterApp>
     // Non-blocking approach: always render main app, use overlay to show splash animation
     return BlocListener<AuthenticationBloc, AuthenticationState>(
       listenWhen: (previous, current) => previous.isLoggedIn != current.isLoggedIn,
-      listener: (context, state) {
+      listener: (context, state) { 
       },
       child: MaterialApp.router(
         routerConfig: _appRouter.router,
@@ -346,51 +298,10 @@ class _MyRouterAppState extends State<MyRouterApp>
             children: [
               // Main app content (always exists, not blocked)
               child ?? const SizedBox(),
-              // Splash animation overlay (can disappear)
-              if (_showSplash)
-                Positioned.fill(
-                  child: AnimatedBuilder(
-                    animation: _animController,
-                    builder: (context, _) {
-                      return Opacity(
-                        opacity: _currentOverlayOpacity,
-                        child: Container(
-                          color: Colors.white,
-                          width: double.infinity,
-                          height: double.infinity,
-                          child: Center(
-                            child: Transform.rotate(
-                              angle: _logoRotation.value,
-                              child: FadeTransition(
-                                opacity: _logoOpacity,
-                                child: ScaleTransition(
-                                  scale: _logoScale,
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(20),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.3),
-                                          blurRadius: 15,
-                                          offset: const Offset(0, 8),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Image.asset(
-                                      'assets/icon/app_icon.png',
-                                      width: 150, // Increase icon size
-                                      height: 150,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
+              SplashScreen(
+                overlayOpacity: _currentOverlayOpacity,
+                visible: _showSplash,
+              ),
             ],
           );
         },
