@@ -13,6 +13,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'services/in_app_messaging_service.dart';
 import 'widgets/splash_screen.dart'; // import SplashScreen
+import 'services/notification_permission_helper.dart'; // import NotificationPermissionHelper
 
 /// Top-level function to handle background FCM messages
 @pragma('vm:entry-point')
@@ -52,7 +53,7 @@ void main() async {
     }
   }
 
-    runApp(const MyApp());
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -146,7 +147,7 @@ class _MyRouterAppState extends State<MyRouterApp> {
       Future.delayed(const Duration(seconds: 3), () {
         if (mounted) {          
           print('🔔 Checking notification permissions...');          
-          _checkNotificationPermissions();
+          NotificationPermissionHelper.checkAndRequest(context); // Check and request notification permissions
         }
       });
     });
@@ -191,91 +192,6 @@ class _MyRouterAppState extends State<MyRouterApp> {
   @override
   void dispose() {
     super.dispose();
-  }
-
-  /// Show notification permission dialog
-  Future<void> _checkNotificationPermissions() async {
-    try {
-      bool isGranted = await FCMService().isNotificationPermissionGranted();
-      if (!isGranted && mounted) {
-        // Show permission request dialog
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => AlertDialog(
-            title: const Row(
-              children: [
-                Icon(Icons.notifications, color: Colors.orange),
-                SizedBox(width: 8),
-                Text('Enable Notifications'),
-              ],
-            ),
-            content: const Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'To receive notifications about restaurants and recommendations, please enable notifications for this app.',
-                  style: TextStyle(fontSize: 16),
-                ),
-                SizedBox(height: 12),
-                Text(
-                  'You can change this setting anytime in your device settings.',
-                  style: TextStyle(fontSize: 14, color: Colors.grey),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Not Now'),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  Navigator.of(context).pop();
-                  bool granted = await FCMService().requestNotificationPermissions();
-                  if (!granted && mounted) {
-                    _showSettingsDialog();
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Enable'),
-              ),
-            ],
-          ),
-        );
-      }
-    } catch (e) {
-      print('Error checking notification permissions: $e');
-    }
-  }
-
-  void _showSettingsDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Permission Required'),
-        content: const Text(
-          'Notifications are disabled. To enable them, please go to Settings > Apps > What to Eat > Notifications and turn on notifications.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-              await FCMService().openNotificationSettings();
-            },
-            child: const Text('Open Settings'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
