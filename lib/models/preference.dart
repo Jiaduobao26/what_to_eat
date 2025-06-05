@@ -47,11 +47,14 @@ class Preference {
 
   Preference({
     required this.userId,
-    this.likedRestaurants = const [],
-    this.dislikedRestaurants = const [],
-    this.likedCuisines = const [],
-    this.dislikedCuisines = const [],
-  });
+    List<RestaurantInfo>? likedRestaurants,
+    List<RestaurantInfo>? dislikedRestaurants,
+    List<String>? likedCuisines,
+    List<String>? dislikedCuisines,
+  }) : likedRestaurants = likedRestaurants ?? <RestaurantInfo>[],
+       dislikedRestaurants = dislikedRestaurants ?? <RestaurantInfo>[],
+       likedCuisines = likedCuisines ?? <String>[],
+       dislikedCuisines = dislikedCuisines ?? <String>[];
 
   Map<String, dynamic> toMap() {
     return {
