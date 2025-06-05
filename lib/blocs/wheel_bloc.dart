@@ -296,9 +296,9 @@ class WheelBloc extends Bloc<WheelEvent, WheelState> {
         print('After preference filtering: \\${filteredRestaurants.length}');
         
         if (filteredRestaurants.isNotEmpty) {
-          final random = Random().nextInt(filteredRestaurants.length);
-          final selected = filteredRestaurants[random];
-          print('Selected from local: \\${selected['name']}');
+          final randomIndex = Random().nextInt(filteredRestaurants.length);
+          final selected = filteredRestaurants[randomIndex];
+          print('🎲 Randomly selected from local list: \\${selected['name']} (index: $randomIndex/${filteredRestaurants.length})');
           final restaurant = Restaurant(
             name: selected['name'] ?? 'Unknown',
             cuisine: _formatCuisineDisplay(selected['types'] as List<dynamic>? ?? []),
@@ -358,8 +358,12 @@ class WheelBloc extends Bloc<WheelEvent, WheelState> {
     final results = data['results'] as List<dynamic>;
     print('Google API results count: \\${results.length}');
     if (results.isEmpty) throw Exception('No results from Google API');
-    final restaurants = parseRestaurants(results, keyword); 
-    return restaurants[0];
+    final restaurants = parseRestaurants(results, keyword);
+    
+    // 🎲 随机选择第n个餐厅，而不是总是选择第一个
+    final randomIndex = Random().nextInt(restaurants.length);
+    print('🎯 Randomly selected restaurant index: $randomIndex/${restaurants.length}');
+    return restaurants[randomIndex];
   }
   Future<String> _getApiKey() async {
     if (_apiKey != null) return _apiKey!;

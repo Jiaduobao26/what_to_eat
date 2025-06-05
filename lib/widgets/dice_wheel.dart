@@ -170,7 +170,7 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
     final randomIndex = _random.nextInt(filteredRestaurants.length);
     final selectedRestaurant = filteredRestaurants[randomIndex];
     
-    print('Random selection: index $randomIndex, restaurant: ${selectedRestaurant['name']}');
+    print('🎲 Surprise mode - Randomly selected: ${selectedRestaurant['name']} (index: $randomIndex/${filteredRestaurants.length})');
     
     await _displaySelectedRestaurant(selectedRestaurant);
   }
@@ -367,7 +367,7 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
         final randomIndex = _random.nextInt(filteredRestaurants.length);
         final selectedRestaurant = filteredRestaurants[randomIndex];
         
-        print('🎲 Selected restaurant from nearby list: ${selectedRestaurant['name']} (index: $randomIndex)');
+        print('🎲 Preference mode - Selected from nearby list: ${selectedRestaurant['name']} (index: $randomIndex/${filteredRestaurants.length})');
         
         await _displaySelectedRestaurant(selectedRestaurant);
         return;
@@ -381,7 +381,6 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
     // 如果nearby list中没有找到合适的餐厅，使用Google API搜索
     try {
       print('🌐 Searching for $cuisine cuisine using Google API...');
-      final detailService = RestaurantDetailService();
       final wheelBloc = context.read<WheelBloc>();
       final restaurant = await wheelBloc.fetchRestaurantByCuisine(cuisine);
       
