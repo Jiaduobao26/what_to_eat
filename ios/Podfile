@@ -4,6 +4,53 @@ platform :ios, '14.0'
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
+# 读取local.properties文件 - 类似Android build.gradle.kts
+def load_local_properties
+  properties = {}
+  local_properties_file = File.join(File.dirname(__FILE__), '..', 'local.properties')
+  fallback_properties_file = File.join(File.dirname(__FILE__), '..', 'assets', 'local.properties')
+  
+  # 尝试读取根目录的local.properties
+  if File.exist?(local_properties_file)
+    File.foreach(local_properties_file) do |line|
+      line.strip!
+      next if line.empty? || line.start_with?('#')
+      
+      if line.include?('=')
+        key, value = line.split('=', 2)
+        properties[key.strip] = value.strip
+      end
+    end
+    puts "🔑 Loaded #{properties.keys.size} properties from local.properties"
+  # 备用方案：尝试读取assets/local.properties
+  elsif File.exist?(fallback_properties_file)
+    File.foreach(fallback_properties_file) do |line|
+      line.strip!
+      next if line.empty? || line.start_with?('#')
+      
+      if line.include?('=')
+        key, value = line.split('=', 2)
+        properties[key.strip] = value.strip
+      end
+    end
+    puts "🔑 Loaded #{properties.keys.size} properties from assets/local.properties (fallback)"
+  else
+    puts "⚠️ local.properties not found, using defaults"
+  end
+  
+  properties
+end
+
+# 加载配置
+local_props = load_local_properties
+google_maps_api_key = local_props['GOOGLE_MAPS_API_KEY'] || local_props['API_KEY']
+
+if google_maps_api_key
+  puts "🗺️ Google Maps API key configured: #{google_maps_api_key[0..9]}..."
+else
+  puts "⚠️ No Google Maps API key found in local.properties"
+end
+
 project 'Runner', {
   'Debug' => :debug,
   'Profile' => :release,
@@ -36,10 +83,30 @@ target 'Runner' do
 end
 
 post_install do |installer|
+  # 获取之前加载的Google Maps API密钥
+  local_props = load_local_properties
+  google_maps_api_key = local_props['GOOGLE_MAPS_API_KEY'] || local_props['API_KEY']
+  
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+      
+      # 注入Google Maps API密钥到构建配置中 - 类似Android gradle
+      if google_maps_api_key
+        config.build_settings['GOOGLE_MAPS_API_KEY'] = google_maps_api_key
+      end
     end
   end
+  
+  # 同时设置Runner项目的构建配置
+  installer.aggregate_targets.each do |target|
+    target.xcconfigs.each do |config_name, config_file|
+      if google_maps_api_key
+        config_file.attributes['GOOGLE_MAPS_API_KEY'] = google_maps_api_key
+      end
+    end
+  end
+  
+  puts "✅ iOS build configuration updated with local.properties"
 end
