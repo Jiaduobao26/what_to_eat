@@ -14,6 +14,7 @@ import '../models/restaurant.dart';
 import '../blocs/wheel_bloc.dart';
 import '../widgets/dice/dice_face.dart';
 import '../utils/restaurant_utils.dart';
+import '../services/restaurant_selector_service.dart';
 
 enum RandomMode { surprise, preference }
 
@@ -34,9 +35,11 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
   
   int _currentDiceNumber = 1;
   final Random _random = Random();
-  
-  // 新增：随机模式选择
+
+  // 新增：随机模式选择  
   RandomMode _selectedMode = RandomMode.surprise;
+
+  late RestaurantSelectorService _restaurantSelectorService;
 
   @override
   void initState() {
@@ -44,7 +47,7 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
     
     // 注册回调函数
     widget.onRegisterCallback?.call(rollDice);
-    
+
     // 初始化骰子动画
     _diceAnimationController = AnimationController(
       duration: const Duration(milliseconds: 1500),
@@ -75,7 +78,8 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
         _performRandomSelection();
       }
     });
-    
+
+    _restaurantSelectorService = RestaurantSelectorService(context);
     // 初始化时随机设置一个骰子数字
     _currentDiceNumber = _random.nextInt(6) + 1;
   }
@@ -107,15 +111,15 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
       print('Dice is already rolling, ignoring...');
       return;
     }
-    
+
     print('Starting dice animation...');
     setState(() {
       _isDiceRolling = true;
     });
-    
+
     // 重置动画控制器
     _diceAnimationController.reset();
-    
+
     // 动画过程中随机改变骰子数字
     Timer.periodic(const Duration(milliseconds: 100), (timer) {
       if (_diceAnimationController.isAnimating) {
@@ -127,7 +131,7 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
         print('Dice animation timer cancelled');
       }
     });
-    
+
     _diceAnimationController.forward();
   }
 
@@ -136,9 +140,44 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
     print('Performing random selection in ${_selectedMode.name} mode...');
     try {
       if (_selectedMode == RandomMode.surprise) {
-        await _performSurpriseSelection();
+        final originalList = Provider.of<NearbyRestaurantProvider>(context, listen: false).restaurants;
+        final nearbyList = List<Map<String, dynamic>>.from(originalList);
+        final selected = await _restaurantSelectorService.performSurpriseSelection(
+          nearbyList,
+          filterDislikedRestaurants,
+        );
+        if (selected != null) {
+          await _displaySelectedRestaurant(selected);
+        } else if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No restaurants available for random selection')),
+          );
+        }
       } else {
-        await _performPreferenceBasedSelection();
+        await _restaurantSelectorService.performPreferenceBasedSelection(
+          getPreference: () async {
+            final user = FirebaseAuth.instance.currentUser;
+            if (user != null) {
+              final repo = UserPreferenceRepository();
+              return await repo.fetchPreference(user.uid);
+            } else {
+              return await getGuestPreferences();
+            }
+          },
+          displaySelectedRestaurant: _displaySelectedRestaurant,
+          filterDislikedRestaurants: filterDislikedRestaurants,
+          fallbackSurpriseSelection: () async {
+            final originalList = Provider.of<NearbyRestaurantProvider>(context, listen: false).restaurants;
+            final nearbyList = List<Map<String, dynamic>>.from(originalList);
+            final selected = await _restaurantSelectorService.performSurpriseSelection(
+              nearbyList,
+              filterDislikedRestaurants,
+            );
+            if (selected != null) {
+              await _displaySelectedRestaurant(selected);
+            }
+          },
+        );
       }
     } catch (e) {
       print('Error in random selection: $e');
@@ -150,270 +189,18 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
     }
   }
 
-  // Surprise me! 模式 - 完全随机选择
-  Future<void> _performSurpriseSelection() async {
-    // 创建列表副本以避免并发修改异常
-    final originalList = Provider.of<NearbyRestaurantProvider>(context, listen: false).restaurants;
-    final nearbyList = List<Map<String, dynamic>>.from(originalList);
-    print('Total restaurants from provider: ${nearbyList.length}');
-    
-    final filteredRestaurants = await filterDislikedRestaurants(nearbyList);
-    print('Filtered restaurants count: ${filteredRestaurants.length}');
-    
-    if (filteredRestaurants.isEmpty) {
-      print('No restaurants available for random selection');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No restaurants available for random selection')),
-        );
-      }
-      return;
-    }
-    
-    // 随机选择一个餐厅
-    final randomIndex = _random.nextInt(filteredRestaurants.length);
-    final selectedRestaurant = filteredRestaurants[randomIndex];
-    
-    print('Random selection: index $randomIndex, restaurant: ${selectedRestaurant['name']}');
-    
-    await _displaySelectedRestaurant(selectedRestaurant);
-  }
-
-  // Based on my preference 模式 - 基于用户偏好选择
-  Future<void> _performPreferenceBasedSelection() async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      pref_models.Preference? preference;
-      
-      if (user != null) {
-        // 登录用户 - 从Firebase获取偏好
-        final repo = UserPreferenceRepository();
-        preference = await repo.fetchPreference(user.uid);
-      } else {
-        // 游客用户 - 从SharedPreferences获取偏好
-        preference = await getGuestPreferences();
-      }
-      
-      if (preference == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No preferences found. Please set your preferences first.')),
-          );
-        }
-        return;
-      }
-      
-      print('🎯 User preferences:');
-      print('   Liked cuisines: ${preference.likedCuisines}');
-      print('   Disliked cuisines: ${preference.dislikedCuisines}');
-      print('   Liked restaurants: ${preference.likedRestaurants.map((r) => r.name).toList()}');
-      
-      // 创建混合的偏好选择池
-      final mixedPreferences = <dynamic>[];
-      
-      // 添加所有喜欢的餐厅
-      mixedPreferences.addAll(preference.likedRestaurants);
-      
-      // 添加所有喜欢的菜系
-      mixedPreferences.addAll(preference.likedCuisines);
-      
-      if (mixedPreferences.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No liked restaurants or cuisines found. Please add some preferences first.')),
-          );
-        }
-        return;
-      }
-      
-      print('Mixed preferences pool size: ${mixedPreferences.length} (${preference.likedRestaurants.length} restaurants + ${preference.likedCuisines.length} cuisines)');
-      
-      // 尝试选择，如果失败则重试（最多3次）
-      int maxRetries = 3;
-      bool selectionMade = false;
-      
-      for (int attempt = 1; attempt <= maxRetries && !selectionMade; attempt++) {
-        print('🎲 Selection attempt $attempt/$maxRetries');
-        
-        // 随机选择一个偏好项目
-        final randomIndex = _random.nextInt(mixedPreferences.length);
-        final selectedPreference = mixedPreferences[randomIndex];
-        
-        try {
-          // 根据选中的类型进行相应处理
-          if (selectedPreference is pref_models.RestaurantInfo) {
-            // 选中的是餐厅，检查菜系偏好后选择
-            print('🍽️ Selected liked restaurant: ${selectedPreference.name} (ID: ${selectedPreference.id})');
-            await _selectSpecificRestaurant(selectedPreference);
-            selectionMade = true;
-          } else if (selectedPreference is String) {
-            // 选中的是菜系，从该菜系中随机选择餐厅
-            print('🍜 Selected liked cuisine: $selectedPreference');
-            await _selectFromSpecificCuisine(selectedPreference);
-            selectionMade = true;
-          }
-        } catch (e) {
-          print('❌ Attempt $attempt failed: $e');
-          if (attempt == maxRetries) {
-            print('⚠️ All attempts failed, falling back to surprise mode');
-            await _performSurpriseSelection();
-            selectionMade = true;
-          }
-        }
-      }
-      
-    } catch (e) {
-      print('❌ Error in preference-based selection: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading preferences. Falling back to random selection.')),
-        );
-      }
-      // 回退到surprise模式
-      await _performSurpriseSelection();
-    }
-  }
-
-  // 选择特定的餐厅（通过API获取详情）
-  Future<void> _selectSpecificRestaurant(pref_models.RestaurantInfo restaurantInfo) async {
-    try {
-      // 使用Google Places API获取餐厅详细信息
-      final detailService = RestaurantDetailService();
-      final restaurantDetail = await detailService.getRestaurantDetail(restaurantInfo.id);
-      
-      // 🚨 关键修复：在选择喜欢的餐厅之前，先检查菜系偏好
-      final user = FirebaseAuth.instance.currentUser;
-      List<String> dislikedCuisines = [];
-      
-      if (user != null) {
-        final repo = UserPreferenceRepository();
-        final pref = await repo.fetchPreference(user.uid);
-        if (pref != null) {
-          dislikedCuisines = pref.dislikedCuisines;
-        }
-      } else {
-        final prefs = await SharedPreferences.getInstance();
-        dislikedCuisines = prefs.getStringList('guest_disliked_cuisines') ?? [];
-      }
-      
-      // 检查这个餐厅是否包含不喜欢的菜系
-      for (final type in restaurantDetail.types) {
-        final typeStr = type.toLowerCase();
-        for (final dislikedCuisine in dislikedCuisines) {
-          final dislikedLower = dislikedCuisine.toLowerCase();
-          if (typeStr.contains(dislikedLower) || dislikedLower.contains(typeStr)) {
-            print('🚨 Skipping liked restaurant ${restaurantInfo.name} because it contains disliked cuisine $dislikedCuisine (type: $typeStr)');
-            throw Exception('Restaurant contains disliked cuisine');
-          }
-        }
-      }
-      
-      print('✅ Liked restaurant ${restaurantInfo.name} passed cuisine filter check');
-      
-      // 转换为适合的格式并显示
-      final restaurantData = {
-        'place_id': restaurantDetail.placeId,
-        'name': restaurantDetail.name,
-        'vicinity': restaurantDetail.formattedAddress,
-        'rating': restaurantDetail.rating ?? 0.0,
-        'geometry': {
-          'location': {
-            'lat': restaurantDetail.geometry.location.lat,
-            'lng': restaurantDetail.geometry.location.lng,
-          }
-        },
-        'types': restaurantDetail.types,
-        'photos': restaurantDetail.photos.isNotEmpty ? [
-          {'photo_reference': restaurantDetail.photos.first.photoReference}
-        ] : null,
-      };
-      
-      await _displaySelectedRestaurant(restaurantData);
-      
-    } catch (e) {
-      print('❌ Error with specific restaurant ${restaurantInfo.name}: $e');
-      // 不显示错误消息给用户，让调用者处理fallback
-      rethrow;
-    }
-  }
-
-  // 从特定菜系中随机选择餐厅
-  Future<void> _selectFromSpecificCuisine(String cuisine) async {
-    // 创建列表副本以避免并发修改异常
-    final originalList = Provider.of<NearbyRestaurantProvider>(context, listen: false).restaurants;
-    final nearbyList = List<Map<String, dynamic>>.from(originalList);
-    
-    print('🔍 Searching for cuisine: $cuisine in ${nearbyList.length} nearby restaurants');
-    
-    // 找到匹配该菜系的附近餐厅
-    final matchingRestaurants = <Map<String, dynamic>>[];
-    
-    for (final restaurant in nearbyList) {
-      final types = restaurant['types'] as List<dynamic>? ?? [];
-      final restaurantName = restaurant['name'] ?? 'Unknown';
-      
-      if (types.any((type) => type.toString().toLowerCase().contains(cuisine.toLowerCase()) ||
-                              cuisine.toLowerCase().contains(type.toString().toLowerCase()))) {
-        print('   ✅ Match found: $restaurantName (types: $types)');
-        matchingRestaurants.add(restaurant);
-      }
-    }
-    
-    print('📊 Found ${matchingRestaurants.length} restaurants matching cuisine: $cuisine');
-    
-    if (matchingRestaurants.isNotEmpty) {
-      // 在nearby list中找到了匹配的餐厅
-      print('🚫 Applying dislike filters to nearby restaurants...');
-      final filteredRestaurants = await filterDislikedRestaurants(matchingRestaurants);
-      
-      print('📊 After filtering: ${filteredRestaurants.length} restaurants remain');
-      
-      if (filteredRestaurants.isNotEmpty) {
-        // 随机选择一个匹配的餐厅
-        final randomIndex = _random.nextInt(filteredRestaurants.length);
-        final selectedRestaurant = filteredRestaurants[randomIndex];
-        
-        print('🎲 Selected restaurant from nearby list: ${selectedRestaurant['name']} (index: $randomIndex)');
-        
-        await _displaySelectedRestaurant(selectedRestaurant);
-        return;
-      } else {
-        print('⚠️ All nearby restaurants were filtered out due to dislikes, using Google API...');
-      }
-    } else {
-      print('⚠️ No restaurants found in nearby list, using Google API...');
-    }
-    
-    // 如果nearby list中没有找到合适的餐厅，使用Google API搜索
-    try {
-      print('🌐 Searching for $cuisine cuisine using Google API...');
-      final detailService = RestaurantDetailService();
-      final wheelBloc = context.read<WheelBloc>();
-      final restaurant = await wheelBloc.fetchRestaurantByCuisine(cuisine);
-      
-      print('🎯 Found restaurant via API: ${restaurant.name}');
-      
-      // 直接显示API结果（API结果已经是Restaurant对象）
-      context.read<WheelBloc>().add(SetSelectedRestaurantEvent(restaurant));
-      
-    } catch (e) {
-      print('❌ Error searching via Google API: $e');
-      throw Exception('No restaurants found for $cuisine cuisine');
-    }
-  }
-
   // 显示选中的餐厅
   Future<void> _displaySelectedRestaurant(Map<String, dynamic> selectedRestaurant) async {
     if (mounted) {
       final types = selectedRestaurant['types'] as List<dynamic>? ?? [];
       final restaurantName = selectedRestaurant['name'] ?? 'Unknown';
-      
+
       print('Displaying selected restaurant: $restaurantName (types: $types)');
-      
+
       // 🚨 最终验证：确保这个餐厅不包含不喜欢的菜系
       final user = FirebaseAuth.instance.currentUser;
       List<String> dislikedCuisines = [];
-      
+
       try {
         if (user != null) {
           final repo = UserPreferenceRepository();
@@ -425,7 +212,7 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
           final prefs = await SharedPreferences.getInstance();
           dislikedCuisines = prefs.getStringList('guest_disliked_cuisines') ?? [];
         }
-        
+
         // 检查是否包含不喜欢的菜系
         for (final type in types) {
           final typeStr = type.toString().toLowerCase();
@@ -438,18 +225,17 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
                   SnackBar(content: Text('发现不喜欢的菜系，重新选择...')),
                 );
               }
-              // 重新执行偏好选择
-              await _performPreferenceBasedSelection();
+              await _performRandomSelection();
               return;
             }
           }
         }
-        
+
         print('✅ Final validation passed for: $restaurantName');
       } catch (e) {
         print('⚠️ Error in final validation: $e, proceeding anyway...');
       }
-      
+
       // 创建Restaurant对象
       final restaurant = Restaurant(
         name: restaurantName,
@@ -460,15 +246,15 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
         lat: (selectedRestaurant['geometry']?['location']?['lat'] as num?)?.toDouble() ?? 0.0,
         lng: (selectedRestaurant['geometry']?['location']?['lng'] as num?)?.toDouble() ?? 0.0,
       );
-      
+
       print('✅ Created restaurant object: ${restaurant.name}, cuisine: ${restaurant.cuisine}');
-      
+
       // 🔧 修复：直接设置选中的餐厅状态，而不是触发新的搜索
       // 使用SetSelectedRestaurantEvent直接设置结果
       context.read<WheelBloc>().add(SetSelectedRestaurantEvent(restaurant));
     }
   }
-
+  
 
   @override
   Widget build(BuildContext context) {
