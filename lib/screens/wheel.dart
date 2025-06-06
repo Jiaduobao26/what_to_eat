@@ -39,10 +39,10 @@ class _WheelOneViewState extends State<WheelOneView> {
   bool _isSpinning = false;
   int? _selectedIndex;
   
-  // 模式切换
+  // model change to toggle between custom wheel and random mode
   bool _isRandomMode = false;
   
-  // 用于触发骰子动画的函数
+  // trigger callback for dice wheel
   VoidCallback? _rollDiceCallback;
 
   @override
@@ -162,7 +162,7 @@ class _WheelOneViewState extends State<WheelOneView> {
                 
                 const SizedBox(height: 30),
                 
-                // 主要内容区域
+                // dice wheel or custom wheel section
                 SizedBox(
                   height: 300,
                   child: _isRandomMode ? DiceWheel(
@@ -211,7 +211,7 @@ class _WheelOneViewState extends State<WheelOneView> {
                   },
                 ),
                 const SizedBox(height: 10),
-                if (!_isRandomMode) // 只在自选转盘模式显示modify按钮
+                if (!_isRandomMode) // only show modify button for custom wheel
                   BlocBuilder<WheelBloc, WheelState>(
                     builder: (context, state) => TextButton(
                       onPressed: () => context.read<WheelBloc>().add(ShowModifyEvent()),
