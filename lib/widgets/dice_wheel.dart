@@ -157,7 +157,7 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
     final nearbyList = List<Map<String, dynamic>>.from(originalList);
     print('Total restaurants from provider: ${nearbyList.length}');
     
-    final filteredRestaurants = await _filterDislikedRestaurants(nearbyList);
+    final filteredRestaurants = await filterDislikedRestaurants(nearbyList);
     print('Filtered restaurants count: ${filteredRestaurants.length}');
     
     if (filteredRestaurants.isEmpty) {
@@ -191,7 +191,7 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
         preference = await repo.fetchPreference(user.uid);
       } else {
         // 游客用户 - 从SharedPreferences获取偏好
-        preference = await _getGuestPreferences();
+        preference = await getGuestPreferences();
       }
       
       if (preference == null) {
@@ -364,7 +364,7 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
     if (matchingRestaurants.isNotEmpty) {
       // 在nearby list中找到了匹配的餐厅
       print('🚫 Applying dislike filters to nearby restaurants...');
-      final filteredRestaurants = await _filterDislikedRestaurants(matchingRestaurants);
+      final filteredRestaurants = await filterDislikedRestaurants(matchingRestaurants);
       
       print('📊 After filtering: ${filteredRestaurants.length} restaurants remain');
       
@@ -399,39 +399,6 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
     } catch (e) {
       print('❌ Error searching via Google API: $e');
       throw Exception('No restaurants found for $cuisine cuisine');
-    }
-  }
-
-  // 获取游客用户偏好
-  Future<pref_models.Preference?> _getGuestPreferences() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      
-      final likedCuisines = prefs.getStringList('guest_liked_cuisines') ?? [];
-      final likedRestaurantsStr = prefs.getStringList('guest_liked_restaurants') ?? [];
-      
-      if (likedCuisines.isEmpty && likedRestaurantsStr.isEmpty) {
-        return null;
-      }
-      
-      // 解析餐厅信息
-      final likedRestaurants = likedRestaurantsStr.map((str) {
-        try {
-          final map = json.decode(str) as Map<String, dynamic>;
-          return pref_models.RestaurantInfo.fromMap(map);
-        } catch (e) {
-          return pref_models.RestaurantInfo(id: str, name: str);
-        }
-      }).toList();
-      
-      return pref_models.Preference(
-        userId: 'guest',
-        likedCuisines: likedCuisines,
-        likedRestaurants: likedRestaurants,
-      );
-    } catch (e) {
-      print('Error loading guest preferences: $e');
-      return null;
     }
   }
 
@@ -502,84 +469,6 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
     }
   }
 
-  // 过滤不喜欢的餐厅
-  Future<List<Map<String, dynamic>>> _filterDislikedRestaurants(List<Map<String, dynamic>> restaurants) async {
-    // 创建输入列表的副本以避免并发修改
-    final restaurantsCopy = List<Map<String, dynamic>>.from(restaurants);
-    final user = FirebaseAuth.instance.currentUser;
-    
-    try {
-      List<String> dislikedRestaurantIds = [];
-      List<String> dislikedCuisines = [];
-      
-      if (user != null) {
-        // 登录用户
-        final repo = UserPreferenceRepository();
-        final pref = await repo.fetchPreference(user.uid);
-        if (pref != null) {
-          dislikedRestaurantIds = pref.dislikedRestaurantIds;
-          dislikedCuisines = pref.dislikedCuisines;
-        }
-      } else {
-        // 游客用户
-        final prefs = await SharedPreferences.getInstance();
-        dislikedCuisines = prefs.getStringList('guest_disliked_cuisines') ?? [];
-        final dislikedRestaurantsStr = prefs.getStringList('guest_disliked_restaurants') ?? [];
-        dislikedRestaurantIds = dislikedRestaurantsStr.map((str) {
-          try {
-            final map = json.decode(str) as Map<String, dynamic>;
-            return map['id'] as String;
-          } catch (e) {
-            return str; // 回退到旧格式
-          }
-        }).toList();
-      }
-
-      print('🚫 Disliked cuisines: $dislikedCuisines');
-      print('🚫 Disliked restaurant IDs: $dislikedRestaurantIds');
-      
-      final filteredRestaurants = restaurantsCopy.where((restaurant) {
-        final placeId = restaurant['place_id'] as String? ?? '';
-        final types = restaurant['types'] as List<dynamic>? ?? [];
-        final restaurantName = restaurant['name'] ?? '';
-        
-        // 检查是否是不喜欢的餐厅ID
-        if (dislikedRestaurantIds.contains(placeId)) {
-          print('🚫 Filtered out restaurant by ID: $restaurantName (ID: $placeId)');
-          return false;
-        }
-        
-        // 检查是否包含不喜欢的菜系类型
-        for (final type in types) {
-          final typeStr = type.toString().toLowerCase();
-          
-          // 检查直接匹配
-          if (dislikedCuisines.map((c) => c.toLowerCase()).contains(typeStr)) {
-            print('🚫 Filtered out restaurant by cuisine type: $restaurantName (type: $typeStr)');
-            return false;
-          }
-          
-          // 检查相关匹配（例如：不喜欢cafe，也过滤掉带有cafe的类型）
-          for (final dislikedCuisine in dislikedCuisines) {
-            final dislikedLower = dislikedCuisine.toLowerCase();
-            if (typeStr.contains(dislikedLower) || dislikedLower.contains(typeStr)) {
-              print('🚫 Filtered out restaurant by related cuisine: $restaurantName (type: $typeStr, disliked: $dislikedCuisine)');
-              return false;
-            }
-          }
-        }
-        
-        print('✅ Restaurant passed filter: $restaurantName (types: $types)');
-        return true;
-      }).toList();
-      
-      print('📊 Filter results: ${restaurantsCopy.length} → ${filteredRestaurants.length}');
-      return filteredRestaurants;
-    } catch (e) {
-      print('❌ Error filtering restaurants: $e');
-      return restaurantsCopy;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
