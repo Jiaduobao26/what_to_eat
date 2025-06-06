@@ -12,6 +12,8 @@ import '../repositories/user_preference_repository.dart';
 import '../models/preference.dart' as pref_models;
 import '../models/restaurant.dart';
 import '../blocs/wheel_bloc.dart';
+import '../widgets/dice/dice_face.dart';
+import '../utils/restaurant_utils.dart';
 
 enum RandomMode { surprise, preference }
 
@@ -484,10 +486,10 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
       // 创建Restaurant对象
       final restaurant = Restaurant(
         name: restaurantName,
-        cuisine: _formatCuisineType(types),
+        cuisine: formatCuisineType(types),
         rating: (selectedRestaurant['rating'] as num?)?.toDouble() ?? 0.0,
         address: selectedRestaurant['vicinity'] ?? selectedRestaurant['formatted_address'] ?? 'Unknown address',
-        imageUrl: _getPhotoUrl(selectedRestaurant),
+        imageUrl: getPhotoUrl(selectedRestaurant),
         lat: (selectedRestaurant['geometry']?['location']?['lat'] as num?)?.toDouble() ?? 0.0,
         lng: (selectedRestaurant['geometry']?['location']?['lng'] as num?)?.toDouble() ?? 0.0,
       );
@@ -497,69 +499,6 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
       // 🔧 修复：直接设置选中的餐厅状态，而不是触发新的搜索
       // 使用SetSelectedRestaurantEvent直接设置结果
       context.read<WheelBloc>().add(SetSelectedRestaurantEvent(restaurant));
-    }
-  }
-
-  // 格式化菜系类型显示
-  String _formatCuisineType(List<dynamic> types) {
-    if (types.isEmpty) return 'Restaurant';
-    
-    // 尝试找到最有意义的类型
-    for (final type in types) {
-      final typeStr = type.toString();
-      switch (typeStr) {
-        case 'chinese_restaurant':
-          return 'Chinese';
-        case 'japanese_restaurant':
-          return 'Japanese';
-        case 'korean_restaurant':
-          return 'Korean';
-        case 'italian_restaurant':
-          return 'Italian';
-        case 'mexican_restaurant':
-          return 'Mexican';
-        case 'indian_restaurant':
-          return 'Indian';
-        case 'thai_restaurant':
-          return 'Thai';
-        case 'vietnamese_restaurant':
-          return 'Vietnamese';
-        case 'french_restaurant':
-          return 'French';
-        case 'american_restaurant':
-          return 'American';
-        case 'pizza_restaurant':
-          return 'Pizza';
-        case 'seafood_restaurant':
-          return 'Seafood';
-        case 'bakery':
-          return 'Bakery';
-        case 'cafe':
-          return 'Cafe';
-        case 'bar':
-          return 'Bar';
-        default:
-          if (typeStr != 'restaurant' && typeStr != 'establishment' && 
-              typeStr != 'food' && typeStr != 'point_of_interest') {
-            return typeStr.replaceAll('_', ' ').split(' ').map((word) => 
-              word.isNotEmpty ? word[0].toUpperCase() + word.substring(1) : word
-            ).join(' ');
-          }
-      }
-    }
-    
-    return 'Restaurant';
-  }
-
-  // 获取餐厅照片URL
-  String _getPhotoUrl(Map<String, dynamic> restaurant) {
-    final photos = restaurant['photos'] as List<dynamic>?;
-    if (photos != null && photos.isNotEmpty) {
-      final ref = photos.first['photo_reference'];
-      // 这里需要API key，暂时使用占位图
-      return 'https://via.placeholder.com/400x300.png?text=Restaurant+Photo';
-    } else {
-      return 'https://via.placeholder.com/400x300.png?text=No+Image';
     }
   }
 
@@ -672,7 +611,7 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
                       ],
                     ),
                     child: Center(
-                      child: _buildDiceface(_currentDiceNumber),
+                      child: DiceFace(_currentDiceNumber),
                     ),
                   ),
                 ),
@@ -792,75 +731,4 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
       ),
     );
   }
-
-  Widget _buildDiceface(int number) {
-    final dots = <Widget>[];
-    
-    switch (number) {
-      case 1:
-        dots.add(const Positioned(
-          top: 45, left: 45,
-          child: DiceDot(),
-        ));
-        break;
-      case 2:
-        dots.addAll([
-          const Positioned(top: 20, left: 20, child: DiceDot()),
-          const Positioned(bottom: 20, right: 20, child: DiceDot()),
-        ]);
-        break;
-      case 3:
-        dots.addAll([
-          const Positioned(top: 15, left: 15, child: DiceDot()),
-          const Positioned(top: 45, left: 45, child: DiceDot()),
-          const Positioned(bottom: 15, right: 15, child: DiceDot()),
-        ]);
-        break;
-      case 4:
-        dots.addAll([
-          const Positioned(top: 20, left: 20, child: DiceDot()),
-          const Positioned(top: 20, right: 20, child: DiceDot()),
-          const Positioned(bottom: 20, left: 20, child: DiceDot()),
-          const Positioned(bottom: 20, right: 20, child: DiceDot()),
-        ]);
-        break;
-      case 5:
-        dots.addAll([
-          const Positioned(top: 15, left: 15, child: DiceDot()),
-          const Positioned(top: 15, right: 15, child: DiceDot()),
-          const Positioned(top: 45, left: 45, child: DiceDot()),
-          const Positioned(bottom: 15, left: 15, child: DiceDot()),
-          const Positioned(bottom: 15, right: 15, child: DiceDot()),
-        ]);
-        break;
-      case 6:
-        dots.addAll([
-          const Positioned(top: 15, left: 20, child: DiceDot()),
-          const Positioned(top: 15, right: 20, child: DiceDot()),
-          const Positioned(top: 45, left: 20, child: DiceDot()),
-          const Positioned(top: 45, right: 20, child: DiceDot()),
-          const Positioned(bottom: 15, left: 20, child: DiceDot()),
-          const Positioned(bottom: 15, right: 20, child: DiceDot()),
-        ]);
-        break;
-    }
-    
-    return Stack(children: dots);
-  }
 }
-
-class DiceDot extends StatelessWidget {
-  const DiceDot({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 12,
-      height: 12,
-      decoration: const BoxDecoration(
-        color: Color(0xFFE95322),
-        shape: BoxShape.circle,
-      ),
-    );
-  }
-} 
