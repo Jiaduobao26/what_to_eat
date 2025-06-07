@@ -1,20 +1,18 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
 import 'dart:async';
-import 'dart:convert';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/nearby_restaurant_provider.dart';
-import '../services/restaurant_detail_service.dart';
 import '../repositories/user_preference_repository.dart';
-import '../models/preference.dart' as pref_models;
 import '../models/restaurant.dart';
 import '../blocs/wheel_bloc.dart';
 import '../widgets/dice/dice_face.dart';
 import '../utils/restaurant_utils.dart';
 import '../services/restaurant_selector_service.dart';
+import './dice/dice_animation_controller.dart';
 
 enum RandomMode { surprise, preference }
 
@@ -28,9 +26,7 @@ class DiceWheel extends StatefulWidget {
 }
 
 class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMixin {
-  late AnimationController _diceAnimationController;
-  late Animation<double> _diceRotationAnimation;
-  late Animation<double> _diceScaleAnimation;
+  late DiceAnimationController _diceAnim;
   bool _isDiceRolling = false;
   
   int _currentDiceNumber = 1;
@@ -45,32 +41,14 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
   void initState() {
     super.initState();
     
+    // 先初始化骰子动画控制器
+    _diceAnim = DiceAnimationController(vsync: this);
+    
     // 注册回调函数
     widget.onRegisterCallback?.call(rollDice);
 
-    // 初始化骰子动画
-    _diceAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    );
-    
-    _diceRotationAnimation = Tween<double>(
-      begin: 0,
-      end: 8 * pi,
-    ).animate(CurvedAnimation(
-      parent: _diceAnimationController,
-      curve: Curves.easeOutCubic,
-    ));
-    
-    _diceScaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.3,
-    ).animate(CurvedAnimation(
-      parent: _diceAnimationController,
-      curve: Curves.elasticOut,
-    ));
-    
-    _diceAnimationController.addStatusListener((status) {
+
+    _diceAnim.controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
         setState(() {
           _isDiceRolling = false;
@@ -86,7 +64,7 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
 
   @override
   void dispose() {
-    _diceAnimationController.dispose();
+    _diceAnim.dispose();
     super.dispose();
   }
 
@@ -96,10 +74,10 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
   }
 
   void resetAnimation() {
-    if (_diceAnimationController.isAnimating) {
-      _diceAnimationController.stop();
+    if (_diceAnim.controller.isAnimating) {
+      _diceAnim.controller.stop();
     }
-    _diceAnimationController.reset();
+    _diceAnim.controller.reset();
     setState(() {
       _isDiceRolling = false;
     });
@@ -118,11 +96,11 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
     });
 
     // 重置动画控制器
-    _diceAnimationController.reset();
+    _diceAnim.controller.reset();
 
     // 动画过程中随机改变骰子数字
     Timer.periodic(const Duration(milliseconds: 100), (timer) {
-      if (_diceAnimationController.isAnimating) {
+      if (_diceAnim.controller.isAnimating) {
         setState(() {
           _currentDiceNumber = _random.nextInt(6) + 1;
         });
@@ -132,7 +110,7 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
       }
     });
 
-    _diceAnimationController.forward();
+    _diceAnim.controller.forward();
   }
 
   // 执行随机餐厅选择
@@ -264,12 +242,12 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
         children: [
           // 骰子动画
           AnimatedBuilder(
-            animation: _diceAnimationController,
+            animation: _diceAnim.controller,
             builder: (context, child) {
               return Transform.rotate(
-                angle: _diceRotationAnimation.value,
+                angle: _diceAnim.rotationAnimation.value,
                 child: Transform.scale(
-                  scale: _diceScaleAnimation.value,
+                  scale: _diceAnim.scaleAnimation.value,
                   child: Container(
                     width: 120,
                     height: 120,
