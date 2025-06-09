@@ -1,0 +1,1 @@
+enum RandomMode { surprise, preference }

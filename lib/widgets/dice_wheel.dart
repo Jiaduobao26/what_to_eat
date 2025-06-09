@@ -13,8 +13,8 @@ import '../widgets/dice/dice_face.dart';
 import '../utils/restaurant_utils.dart';
 import '../services/restaurant_selector_service.dart';
 import './dice/dice_animation_controller.dart';
-
-enum RandomMode { surprise, preference }
+import './dice/dice_mode_selector.dart';
+import './dice/random_mode.dart';
 
 class DiceWheel extends StatefulWidget {
   final Function(VoidCallback)? onRegisterCallback;
@@ -40,7 +40,7 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
   @override
   void initState() {
     super.initState();
-    
+
     // 先初始化骰子动画控制器
     _diceAnim = DiceAnimationController(vsync: this);
     
@@ -275,96 +275,15 @@ class _DiceWheelState extends State<DiceWheel> with SingleTickerProviderStateMix
           const SizedBox(height: 30),
           
           // 模式选择按钮 - 新的样式，放在骰子下方
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              // Surprise me! 按钮
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        _selectedMode = RandomMode.surprise;
-                      });
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _selectedMode == RandomMode.surprise 
-                          ? const Color(0xFFE95322) 
-                          : Colors.white,
-                      foregroundColor: _selectedMode == RandomMode.surprise 
-                          ? Colors.white 
-                          : const Color(0xFFE95322),
-                      side: const BorderSide(color: Color(0xFFE95322), width: 2),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(25),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                      elevation: _selectedMode == RandomMode.surprise ? 4 : 1,
-                    ),
-                    icon: Icon(
-                      Icons.casino,
-                      size: 18,
-                      color: _selectedMode == RandomMode.surprise 
-                          ? Colors.white 
-                          : const Color(0xFFE95322),
-                    ),
-                    label: const Text(
-                      'Surprise me!',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              
-              // Based on my preference 按钮
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        _selectedMode = RandomMode.preference;
-                      });
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _selectedMode == RandomMode.preference 
-                          ? const Color(0xFF4CAF50) 
-                          : Colors.white,
-                      foregroundColor: _selectedMode == RandomMode.preference 
-                          ? Colors.white 
-                          : const Color(0xFF4CAF50),
-                      side: const BorderSide(color: Color(0xFF4CAF50), width: 2),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(25),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                      elevation: _selectedMode == RandomMode.preference ? 4 : 1,
-                    ),
-                    icon: Icon(
-                      Icons.favorite,
-                      size: 18,
-                      color: _selectedMode == RandomMode.preference 
-                          ? Colors.white 
-                          : const Color(0xFF4CAF50),
-                    ),
-                    label: const Text(
-                      'Based on my preference',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+          DiceModeSelector(
+            selectedMode: _selectedMode,
+            onModeChanged: (mode) {
+              setState(() {
+                _selectedMode = mode;
+              });
+            },
           ),
-          
+
           const SizedBox(height: 20),
           
           Text(
