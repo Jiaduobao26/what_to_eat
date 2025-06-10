@@ -162,6 +162,18 @@ class AuthenticationBloc extends Bloc<AuthenticationEvent, AuthenticationState> 
             'createdAt': FieldValue.serverTimestamp(),
           });
           
+          // 注册成功后立即标记为需要设置偏好
+          final prefs = await SharedPreferences.getInstance();
+          final needsPreferenceEmails = prefs.getStringList('needsPreferenceSetup') ?? [];
+          if (!needsPreferenceEmails.contains(event.email)) {
+            needsPreferenceEmails.add(event.email);
+            await prefs.setStringList('needsPreferenceSetup', needsPreferenceEmails);
+            print('🔍 Register Debug: Added ${event.email} to needsPreferenceSetup list');
+            print('🔍 Register Debug: Current list = $needsPreferenceEmails');
+          } else {
+            print('🔍 Register Debug: ${event.email} already in needsPreferenceSetup list');
+          }
+          
           // Log out user, require email verification first
           await FirebaseAuth.instance.signOut();
           
@@ -312,12 +324,19 @@ class AuthenticationBloc extends Bloc<AuthenticationEvent, AuthenticationState> 
         await prefs.remove('guestLoggedIn');
         emit(const AuthenticationState.authenticated());
         
-        // 发送欢迎通知
-        try {
-          await FCMService().showWelcomeNotification();
-        } catch (e) {
-          // 通知发送失败不影响登录流程
-          print('Failed to send welcome notification: $e');
+        // 检查是否为新注册用户（在needsPreferenceSetup列表中的用户不发送通知，因为他们已经在登录时收到了）
+        final user = FirebaseAuth.instance.currentUser;
+        final needsPreferenceEmails = prefs.getStringList('needsPreferenceSetup') ?? [];
+        final isNewUser = user?.email != null && needsPreferenceEmails.contains(user!.email);
+        
+        // 只有非新注册用户才发送欢迎通知（新注册用户已经在登录时收到了）
+        if (!isNewUser) {
+          try {
+            await FCMService().showWelcomeNotification();
+          } catch (e) {
+            // 通知发送失败不影响登录流程
+            print('Failed to send welcome notification: $e');
+          }
         }
       } else {
         // 检查guest状态
