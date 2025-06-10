@@ -258,6 +258,14 @@ class AuthenticationBloc extends Bloc<AuthenticationEvent, AuthenticationState> 
         // Guest has been here before, mark as logged in directly
         await prefs.setBool('guestLoggedIn', true);
         emit(const AuthenticationState.guestLoggedIn());
+        
+        // 发送欢迎通知
+        try {
+          await FCMService().showWelcomeNotification();
+        } catch (e) {
+          // 通知发送失败不影响登录流程
+          print('Failed to send welcome notification: $e');
+        }
       } else {
         // First time guest login - goes to preference choose
         emit(const AuthenticationState.guest());
@@ -270,6 +278,14 @@ class AuthenticationBloc extends Bloc<AuthenticationEvent, AuthenticationState> 
       await prefs.setBool('guestLoggedIn', true);
       await prefs.setBool('guestHasCompletedSetup', true); // Mark setup as completed
       emit(const AuthenticationState.guestLoggedIn());
+      
+      // 发送欢迎通知
+      try {
+        await FCMService().showWelcomeNotification();
+      } catch (e) {
+        // 通知发送失败不影响登录流程
+        print('Failed to send welcome notification: $e');
+      }
     });
 
     on<AuthenticationCleanupUnverifiedRequested>((event, emit) async {
@@ -295,6 +311,14 @@ class AuthenticationBloc extends Bloc<AuthenticationEvent, AuthenticationState> 
         final prefs = await SharedPreferences.getInstance();
         await prefs.remove('guestLoggedIn');
         emit(const AuthenticationState.authenticated());
+        
+        // 发送欢迎通知
+        try {
+          await FCMService().showWelcomeNotification();
+        } catch (e) {
+          // 通知发送失败不影响登录流程
+          print('Failed to send welcome notification: $e');
+        }
       } else {
         // 检查guest状态
         final prefs = await SharedPreferences.getInstance();
