@@ -37,7 +37,7 @@ class AppBarActionsWidget extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(right: 16),
       child: IconButton(
-        icon: Icon(icon, color: const Color(0xFF391713)),
+        icon: Icon(icon, color: const Color.fromARGB(255, 255, 255, 255)),
         onPressed: onPressed,
       ),
     );

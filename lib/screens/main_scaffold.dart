@@ -105,7 +105,7 @@ class _MainScaffoldState extends State<MainScaffold> {
         title: Text(
           _getTitle(_selectedIndex),
           style: const TextStyle(
-            color: Color(0xFF391713),
+            color: Color.fromARGB(255, 255, 255, 255),
             fontSize: 22,
             fontFamily: 'Roboto',
             fontWeight: FontWeight.w400,
@@ -125,7 +125,7 @@ class _MainScaffoldState extends State<MainScaffold> {
       ),
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: Colors.white,
-        selectedItemColor: const Color(0xFFFFA500),
+        selectedItemColor: const Color(0xFFE95322),
         unselectedItemColor: const Color(0xFF391713),
         currentIndex: _selectedIndex,
         onTap: (index) {
@@ -135,7 +135,7 @@ class _MainScaffoldState extends State<MainScaffold> {
         },
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.list),
+            icon: Icon(Icons.list_alt_outlined),
             label: 'List',
           ),
           BottomNavigationBarItem(
