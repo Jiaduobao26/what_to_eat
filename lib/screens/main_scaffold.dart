@@ -44,16 +44,26 @@ class _MainScaffoldState extends State<MainScaffold> {
   // 检查当前用户是否需要设置偏好
   Future<void> _checkIfNeedsPreferenceSetup() async {
     final user = FirebaseAuth.instance.currentUser;
+    print('🔍 MainScaffold Debug: Current user = ${user?.email}');
+    
     if (user != null && user.email != null) {
       final prefs = await SharedPreferences.getInstance();
       final needsPreferenceEmails = prefs.getStringList('needsPreferenceSetup') ?? [];
       
+      print('🔍 MainScaffold Debug: needsPreferenceEmails = $needsPreferenceEmails');
+      print('🔍 MainScaffold Debug: contains email = ${needsPreferenceEmails.contains(user.email)}');
+      
       if (needsPreferenceEmails.contains(user.email)) {
+        print('🔍 MainScaffold Debug: Redirecting to preference choose');
         // 当前用户需要设置偏好，跳转到偏好选择页面
         WidgetsBinding.instance.addPostFrameCallback((_) {
           context.go('/preferenceChoose');
         });
+      } else {
+        print('🔍 MainScaffold Debug: User does not need preference setup');
       }
+    } else {
+      print('🔍 MainScaffold Debug: No user or no email');
     }
   }
 

@@ -36,10 +36,16 @@ class _LoginScreenState extends State<LoginScreen> {
           final userEmail = _emailController.text.trim();
           final needsPreferenceEmails = prefs.getStringList('needsPreferenceSetup') ?? [];
           
+          print('🔍 Login Debug: userEmail = $userEmail');
+          print('🔍 Login Debug: needsPreferenceEmails = $needsPreferenceEmails');
+          print('🔍 Login Debug: contains email = ${needsPreferenceEmails.contains(userEmail)}');
+          
           if (needsPreferenceEmails.contains(userEmail)) {
+            print('🔍 Login Debug: Redirecting to preference choose');
             context.go('/preferenceChoose');
           } else {
-            MainScaffold.globalKey.currentState?.switchTab(1);
+            print('🔍 Login Debug: Redirecting to main app');
+            context.go('/');
           }
         }
         if (state.isGuest && !state.isGuestLoggedIn) {
