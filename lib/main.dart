@@ -67,6 +67,13 @@ class _MyRouterAppState extends State<MyRouterApp> {
     final authBloc = context.read<AuthenticationBloc>();
     _appRouter = AppRouter(authBloc: authBloc);
 
+    // 监听启动屏幕状态变化
+    _splashController.addListener(() {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+
     // Listen to restaurant provider for data loading completion
     final restaurantProvider = context.read<NearbyRestaurantProvider>();
 
@@ -134,37 +141,33 @@ class _MyRouterAppState extends State<MyRouterApp> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _splashController,
-      builder: (context, child) {
-      // Non-blocking approach: always render main app, use overlay to show splash animation
-      return BlocListener<AuthenticationBloc, AuthenticationState>(
-        listenWhen: (previous, current) => previous.isLoggedIn != current.isLoggedIn,
-        listener: (context, state) { 
-        },
-        child: MaterialApp.router(
-          routerConfig: _appRouter.router,
-          title: 'What to Eat',
-          debugShowCheckedModeBanner: false,
-          theme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-          ),
-          builder: (context, child) {
-            // Show splash animation overlay if needed
-            return Stack(
-              children: [
-                // Main app content (always exists, not blocked)
-                child ?? const SizedBox(),
+    return BlocListener<AuthenticationBloc, AuthenticationState>(
+      listenWhen: (previous, current) => previous.isLoggedIn != current.isLoggedIn,
+      listener: (context, state) { 
+      },
+      child: MaterialApp.router(
+        routerConfig: _appRouter.router,
+        title: 'What to Eat',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        ),
+        builder: (context, child) {
+          // 只在需要时显示启动屏幕，不包裹AnimatedBuilder
+          return Stack(
+            children: [
+              // 主应用内容
+              child ?? const SizedBox(),
+              // 启动屏幕覆盖层 - 让SplashScreen自己处理动画
+              if (_splashController.showSplash)
                 SplashScreen(
                   overlayOpacity: _splashController.overlayOpacity,
                   visible: _splashController.showSplash,
                 ),
-              ],
-            );
-          },
-        ),
-      );
-    }
-  );
+            ],
+          );
+        },
+      ),
+    );
   }
 }

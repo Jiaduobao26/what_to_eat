@@ -33,11 +33,13 @@ class _LoginScreenState extends State<LoginScreen> {
         }
         if (state.isLoggedIn) {
           final prefs = await SharedPreferences.getInstance();
-          final justRegistered = prefs.getBool('justRegistered') ?? false;
-          if (!justRegistered) {
-            MainScaffold.globalKey.currentState?.switchTab(1);
+          final userEmail = _emailController.text.trim();
+          final needsPreferenceEmails = prefs.getStringList('needsPreferenceSetup') ?? [];
+          
+          if (needsPreferenceEmails.contains(userEmail)) {
+            context.go('/preferenceChoose');
           } else {
-            await prefs.setBool('justRegistered', false);
+            MainScaffold.globalKey.currentState?.switchTab(1);
           }
         }
         if (state.isGuest && !state.isGuestLoggedIn) {

@@ -159,6 +159,14 @@ class _PreferenceChooseScreenState extends State<PreferenceChooseScreen> {
       // 保存到数据库
       await _repo.setPreference(preference);
 
+      // 偏好设置完成，从需要设置偏好的邮箱列表中移除当前用户
+      final prefs = await SharedPreferences.getInstance();
+      final needsPreferenceEmails = prefs.getStringList('needsPreferenceSetup') ?? [];
+      if (needsPreferenceEmails.contains(user.email)) {
+        needsPreferenceEmails.remove(user.email);
+        await prefs.setStringList('needsPreferenceSetup', needsPreferenceEmails);
+      }
+
       if (mounted) {
         // 显示成功消息
         ScaffoldMessenger.of(context).showSnackBar(
@@ -190,12 +198,22 @@ class _PreferenceChooseScreenState extends State<PreferenceChooseScreen> {
     }
   }
 
-  void _onSkip() {
+  void _onSkip() async {
     final user = FirebaseAuth.instance.currentUser;
-    // 如果是访客，标记为已登录
+    
     if (user == null) {
+      // 如果是访客，标记为已登录
       context.read<AuthenticationBloc>().add(AuthenticationGuestLoginButtonPressed());
+    } else {
+      // 如果是正式用户跳过偏好设置，也要从列表中移除邮箱
+      final prefs = await SharedPreferences.getInstance();
+      final needsPreferenceEmails = prefs.getStringList('needsPreferenceSetup') ?? [];
+      if (needsPreferenceEmails.contains(user.email)) {
+        needsPreferenceEmails.remove(user.email);
+        await prefs.setStringList('needsPreferenceSetup', needsPreferenceEmails);
+      }
     }
+    
     GoRouter.of(context).go('/');
   }
 

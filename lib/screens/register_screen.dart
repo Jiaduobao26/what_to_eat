@@ -84,7 +84,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
         if (state.isLoggedIn) {
           Future.delayed(const Duration(milliseconds: 100), () async {
             final prefs = await SharedPreferences.getInstance();
-            await prefs.setBool('justRegistered', true);
+            final userEmail = _emailController.text.trim();
+            final needsPreferenceEmails = prefs.getStringList('needsPreferenceSetup') ?? [];
+            if (!needsPreferenceEmails.contains(userEmail)) {
+              needsPreferenceEmails.add(userEmail);
+              await prefs.setStringList('needsPreferenceSetup', needsPreferenceEmails);
+            }
             if (context.mounted) {
               context.go('/preferenceChoose');
             }

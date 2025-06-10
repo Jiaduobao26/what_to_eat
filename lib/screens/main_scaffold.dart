@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
-import '../screens/lists.dart';
-import '../screens/wheel.dart';
-import '../screens/profile.dart';
-import '../widgets/app_bar_actions_widget.dart';
+import '../services/nearby_restaurant_provider.dart';
+import 'lists.dart';
+import 'wheel.dart';
+import 'profile.dart';
 import '../widgets/dialogs/edit_wheel_option_dialog.dart';
+import '../widgets/app_bar_actions_widget.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../blocs/wheel_bloc.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:go_router/go_router.dart';
 
 class MainScaffold extends StatefulWidget {
   static final GlobalKey<_MainScaffoldState> globalKey = GlobalKey<_MainScaffoldState>();
@@ -33,6 +38,23 @@ class _MainScaffoldState extends State<MainScaffold> {
       const WheelOne(),
       const ProfileScreen(),
     ]);
+    _checkIfNeedsPreferenceSetup();
+  }
+
+  // 检查当前用户是否需要设置偏好
+  Future<void> _checkIfNeedsPreferenceSetup() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && user.email != null) {
+      final prefs = await SharedPreferences.getInstance();
+      final needsPreferenceEmails = prefs.getStringList('needsPreferenceSetup') ?? [];
+      
+      if (needsPreferenceEmails.contains(user.email)) {
+        // 当前用户需要设置偏好，跳转到偏好选择页面
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          context.go('/preferenceChoose');
+        });
+      }
+    }
   }
 
   void switchTab(int index) {
