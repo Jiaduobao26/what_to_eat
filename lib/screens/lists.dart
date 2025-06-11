@@ -843,6 +843,8 @@ class _GoogleRestaurantCard extends StatelessWidget {
                         fontFamily: 'Roboto',
                         fontWeight: FontWeight.w500,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 5),
                     Row(
@@ -867,7 +869,7 @@ class _GoogleRestaurantCard extends StatelessWidget {
                         fontSize: 12,
                         fontFamily: 'Roboto',
                       ),
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     if (cuisineTypes.isNotEmpty) ...[
